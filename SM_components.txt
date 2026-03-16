@@ -1,0 +1,18 @@
+Lista finală (completă)
+
+-Raspberry Pi Pico 2 W
+-LCD grafic (ex. ST7735 1.8" TFT LCD Display Module)
+-Modul MicroSD Card
+-Card MicroSD
+-Microfon analogic (ex. MAX4466 Electret Microphone Amplifier Module)
+-DAC audio (ex. PCM5102 DAC Module)
+-Amplificator audio
+-Speaker sau căști
+-Butoane (home, next, play/pause, prev)
+-Potențiometru (volum)
+-Baterie Li-Po
+-Modul încărcare baterie
+-Rezistențe
+-Breadboard
+-Fire jumper
+-Cablu Micro-USB
