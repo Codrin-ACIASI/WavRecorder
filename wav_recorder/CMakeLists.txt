@@ -62,10 +62,6 @@ target_include_directories(wav_recorder PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
-# Add any user requested libraries
-target_link_libraries(wav_recorder 
-        
-        )
 
 pico_add_extra_outputs(wav_recorder)
 
