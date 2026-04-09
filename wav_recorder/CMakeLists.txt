@@ -39,7 +39,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(lvgl)
 
-add_executable(wav_recorder wav_recorder.c )
+add_executable(wav_recorder
+    buttons.c
+    wav_recorder.c
+    display_port.c
+    ui.c
+    )
 
 
 pico_set_program_name(wav_recorder "wav_recorder")
