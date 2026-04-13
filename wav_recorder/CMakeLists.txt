@@ -39,11 +39,14 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(lvgl)
 
+add_subdirectory(no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src build)
+
 add_executable(wav_recorder
     buttons.c
     wav_recorder.c
     display_port.c
     ui.c
+    hw_config.c
     )
 
 
@@ -60,6 +63,7 @@ target_link_libraries(wav_recorder
     hardware_spi 
     hardware_gpio 
     lvgl  
+    no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
 )
 
 # Add the standard include files to the build

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "lvgl.h" 
-
+#include "ff.h"
 // Modulele facute de noi
 #include "display_port.h"
 #include "ui.h"
