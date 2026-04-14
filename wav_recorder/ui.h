@@ -5,9 +5,9 @@
 #include"lvgl.h"
 
 void ui_init(void);
+void home_screen(void);
 
-
-void ui_set_opt1_active(bool is_active);
+void ui_set_opt_active(lv_obj_t *opt, bool is_active);
 
 
 

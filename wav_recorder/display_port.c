@@ -92,6 +92,6 @@ void display_port_init(void) {
     lv_disp_drv_register(&disp_drv);
 
     // 5. Setăm fundalul negru general
-    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x0000FF), 0);
+    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x000000), 0);
     lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, 0);
 }
