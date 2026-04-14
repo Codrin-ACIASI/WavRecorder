@@ -63,7 +63,7 @@ static lv_obj_t* create_button(int16_t pos_x, int16_t pos_y, uint16_t width, uin
     lv_obj_center(label);
 
     return btn;
-}
+    }
 
 static void anim_zoom_cb(void *var, int32_t v)
 {
@@ -123,10 +123,28 @@ void home_screen(void) {
 }
 
 void ui_set_opt_active(lv_obj_t *opt, bool is_active) {
+
     if(is_active) {
-        lv_obj_set_style_text_color(opt, lv_color_hex(0xFFCCAA), 0);
+        // fundal alb pe label (ca hover)
+        lv_obj_set_style_bg_color(opt, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_bg_opa(opt, LV_OPA_COVER, 0);
+
+        // text negru
+        lv_obj_set_style_text_color(opt, lv_color_hex(0x000000), 0);
+
+        // padding ca să nu fie lipit textul de margine
+        lv_obj_set_style_pad_left(opt, 6, 0);
+        lv_obj_set_style_pad_right(opt, 6, 0);
+        lv_obj_set_style_pad_top(opt, 3, 0);
+        lv_obj_set_style_pad_bottom(opt, 3, 0);
+
     } else {
+        // eliminare fundal
+        lv_obj_set_style_bg_opa(opt, LV_OPA_TRANSP, 0);
+
+        // text alb
         lv_obj_set_style_text_color(opt, lv_color_hex(0xFFFFFF), 0);
     }
+
     lv_obj_invalidate(opt);
 }
