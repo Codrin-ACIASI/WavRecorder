@@ -1,22 +1,19 @@
 #include "buttons.h"
 #include "hardware/gpio.h"
 
-void init_button(uint8_t button){
-    uint8_t pin_fizic = 0;
+void init_button(uint32_t button){
+    uint32_t pin_fizic = 0;
 
     switch (button)
     {
-        case back_buttton:
+        case select_button:
             pin_fizic = BUTON1;
             break;
-        case select_button:
+        case up_button:
             pin_fizic = BUTON2;
             break;
-        case up_button:
-            pin_fizic = BUTON3;
-            break;
         case down_button:
-            pin_fizic =  BUTON4;
+            pin_fizic = BUTON3;
             break;
         default:
             return;

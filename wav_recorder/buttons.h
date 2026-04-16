@@ -10,7 +10,6 @@
 #define BUTON4 27
 
 enum my_buttons{
-    back_buttton = 0,
     select_button = 1,
     up_button = 2,
     down_button = 3
@@ -18,6 +17,6 @@ enum my_buttons{
 
 
 
-void init_button(uint8_t);
+void init_button(uint32_t);
 
 #endif

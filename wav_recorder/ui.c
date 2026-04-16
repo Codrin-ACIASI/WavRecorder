@@ -2,7 +2,6 @@
 #include "lvgl.h"
 
 // Păstrăm un pointer către opt1, opt2 si opt3 ca să o putem modifica mai târziu din exterior
-
 lv_obj_t *opt1;
 lv_obj_t *opt2;
 lv_obj_t *opt3;
@@ -82,57 +81,52 @@ void ui_init(void)
 }
 
 void home_screen(void) {
-    // fundal titlu
+    // titlu 
+    lv_obj_t * my_rect = create_rectangle(lv_scr_act(), 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0x9D4EDD);
+    lv_obj_set_style_shadow_width(my_rect, 10, 0);
+    lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
 
-    create_rectangle(lv_scr_act(), 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0xFFFFFF);
-    lv_obj_t * my_rect = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(my_rect , 240, 120);
-    lv_obj_align(my_rect, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_set_style_bg_color(my_rect , lv_color_hex(0xFFFFFF), 0);
-    
-    // titlu
-    lv_obj_t *symbol = lv_label_create(my_rect);
-    lv_obj_set_style_text_font(symbol, &lv_font_montserrat_32, 0);
-    lv_label_set_text(symbol, "\xEF\x80\x81");
-    lv_obj_set_style_text_color(symbol, lv_color_hex(0x000000), 0);
-    lv_obj_align(symbol, LV_ALIGN_TOP_LEFT, 0, 35);
-
-    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_montserrat_32, 0X000000, LV_ALIGN_TOP_MID, 25, 35);
+    lv_obj_t *symbol = create_label(my_rect, "\xEF\x80\x81", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_LEFT, 0, 35);
+    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_poppins_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
 
     // optiuni 
-    opt1 = create_label(lv_scr_act(), "1. Inregistare voce", &lv_font_montserrat_20, 0XFFFFFF, LV_ALIGN_CENTER, 0, 0);
-    opt2 = create_label(lv_scr_act(), "2. Ascultare", &lv_font_montserrat_20, 0XFFFFFF, LV_ALIGN_CENTER, 0, 30);
-    opt3 = create_label(lv_scr_act(), "3. Oprire", &lv_font_montserrat_20, 0XFFFFFF, LV_ALIGN_CENTER, 0, 60);
+    opt1 = create_label(lv_scr_act(), "1. Inregistare voce", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 0);
+    opt2 = create_label(lv_scr_act(), "2. Ascultare", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 30);
+    opt3 = create_label(lv_scr_act(), "3. Oprire", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 60);
+}
 
-    // bar
-    static lv_style_t style_bg;
-    static lv_style_t style_indic;
+void record_screen_options(void)
+{
+     // titlu 
+    lv_obj_t * my_rect = create_rectangle(lv_scr_act(), 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0x9D4EDD);
+    lv_obj_set_style_shadow_width(my_rect, 10, 0);
+    lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
 
-    lv_style_init(&style_bg);
-    lv_style_set_border_color(&style_bg, lv_palette_main(LV_PALETTE_BLUE));
-    lv_style_set_border_width(&style_bg, 2);
-    lv_style_set_pad_all(&style_bg, 6); 
-    lv_style_set_radius(&style_bg, 6);
-    lv_style_set_anim_time(&style_bg, 1000);
+    lv_obj_t *symbol = create_label(my_rect, "\xEF\x80\x81", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_LEFT, 0, 35);
+    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_poppins_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
 
-    lv_style_init(&style_indic);
-    lv_style_set_bg_opa(&style_indic, LV_OPA_COVER);
-    lv_style_set_bg_color(&style_indic, lv_palette_main(LV_PALETTE_BLUE));
-    lv_style_set_radius(&style_indic, 3);
+    opt1 = create_label(lv_scr_act(), "1. Inregistreaza", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 0);
+    opt2 = create_label(lv_scr_act(), "2. Inapoi la pagina\nprincipala", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 50);
+}
 
+void record_screen(void)
+{
+    lv_obj_t * my_rect = create_rectangle(lv_scr_act(), 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0x9D4EDD);
+    lv_obj_set_style_shadow_width(my_rect, 10, 0);
+    lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
 }
 
 void ui_set_opt_active(lv_obj_t *opt, bool is_active) {
 
     if(is_active) {
         // fundal alb pe label (ca hover)
-        lv_obj_set_style_bg_color(opt, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_bg_color(opt, lv_color_hex(0x9D4EDD), 0);
         lv_obj_set_style_bg_opa(opt, LV_OPA_COVER, 0);
 
         // text negru
-        lv_obj_set_style_text_color(opt, lv_color_hex(0x000000), 0);
+        lv_obj_set_style_text_color(opt, lv_color_hex(0xFFFFFF), 0);
 
-        // padding ca să nu fie lipit textul de margine
+        // padding ca sa nu fie lipit textul de margine
         lv_obj_set_style_pad_left(opt, 6, 0);
         lv_obj_set_style_pad_right(opt, 6, 0);
         lv_obj_set_style_pad_top(opt, 3, 0);
@@ -143,7 +137,7 @@ void ui_set_opt_active(lv_obj_t *opt, bool is_active) {
         lv_obj_set_style_bg_opa(opt, LV_OPA_TRANSP, 0);
 
         // text alb
-        lv_obj_set_style_text_color(opt, lv_color_hex(0xFFFFFF), 0);
+        lv_obj_set_style_text_color(opt, lv_color_hex(0xB3B3B3), 0);
     }
 
     lv_obj_invalidate(opt);

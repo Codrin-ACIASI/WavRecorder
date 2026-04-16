@@ -55,7 +55,7 @@ pico_set_program_version(wav_recorder "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(wav_recorder 0)
-pico_enable_stdio_usb(wav_recorder 0)
+pico_enable_stdio_usb(wav_recorder 1)
 
 # Add the standard library to the build
 target_link_libraries(wav_recorder 
@@ -71,6 +71,4 @@ target_include_directories(wav_recorder PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
-
 pico_add_extra_outputs(wav_recorder)
-
