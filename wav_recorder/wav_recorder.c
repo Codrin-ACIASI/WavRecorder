@@ -86,6 +86,7 @@ int main() {
             ui_set_opt_active(opt2, current_option == 1);
 
             if (btn1_pressed && !last_btn1 && current_option == 0) {
+                //
                 //Trebuie cu intreruperi pentru ca trece direct de la SCREEN_RECORD_OPTIONS la SCREEN_RECORD
                 //lv_obj_clean(lv_scr_act());
                 //lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
