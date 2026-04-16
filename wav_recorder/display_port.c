@@ -4,7 +4,10 @@
 #include "hardware/gpio.h"
 #include "lvgl.h"
 
+//============================================================ 
 // ---- Pini display ----
+//============================================================ 
+
 #define PIN_MISO  16
 #define PIN_CLK   18
 #define PIN_MOSI  19
@@ -14,7 +17,11 @@
 #define LCD_W 240
 #define LCD_H 320
 
-// --- Funcții interne (Statice, ascunse de restul programului) ---
+
+//============================================================ 
+// --- Funcții private ---
+//============================================================ 
+
 static inline void dc_cmd()  { gpio_put(PIN_DC, 0); }
 static inline void dc_data() { gpio_put(PIN_DC, 1); }
 
@@ -58,7 +65,11 @@ static void my_disp_flush(lv_disp_drv_t *disp_drv, const lv_area_t *area, lv_col
     lv_disp_flush_ready(disp_drv);
 }
 
-// --- Funcții Publice ---
+
+//============================================================ 
+// --- Functii publice ---
+//============================================================ 
+
 
 uint32_t custom_tick_get(void) {
     return to_ms_since_boot(get_absolute_time());

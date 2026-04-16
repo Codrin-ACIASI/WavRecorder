@@ -1,0 +1,15 @@
+Cazuri de testare
+
+1. Ce se intampla cand asculti o inregistrare si scoti cardul de memorie?
+2. Ce se întâmplă când faci o înregistrare si scoți cardul de memorie?
+3. Ce se întâmplă când scoți cardul de memorie in timp ce salvezi o înregistrare?
+4. Ce se intampla cand scoți cardul de memorie când ești in meniul de selecție al înregistrărilor?
+5. Ce se intmapla când pornești sismtul fără card de memorie?
+6. Ce se intmapla când se umple memoria fix in timpul înregistrării?
+7. Ce se întâmplă când in fișierul nostru este corupt si vrem sa îl utilizam?
+8. Ce se intmapla cand facem spam de butoane?
+9. Ce se intampla când apăsam mai multe butoane simultan?
+10. Ce se întâmplă cand apăsam mai mult timp un buton?
+11. Ce se intampla cand se termina de ascultat o înregistrare?
+12. Ce se întâmplă cand oprești o înregistrare fix in mijlocul acesteia? 
+13. Ce se întâmplă când sistemul nu este folosit mai mult timp?
