@@ -1,10 +1,18 @@
 #include "ui.h"
 #include "lvgl.h"
-
+#include "pico/stdlib.h"
+#include <stdio.h>
 // Păstrăm un pointer către opt1, opt2 si opt3 ca să o putem modifica mai târziu din exterior
 lv_obj_t *opt1;
 lv_obj_t *opt2;
 lv_obj_t *opt3;
+
+typedef struct {
+    lv_obj_t *label;
+    uint32_t start_time;
+} timer_data_t;
+
+lv_timer_t *record_timer = NULL;
 
 static lv_obj_t* create_rectangle(lv_obj_t* parent, uint8_t width, uint8_t height, lv_align_t align, uint8_t x_ofs, uint8_t y_ofs, uint32_t color){
     lv_obj_t* new_rectangle = lv_obj_create(parent);
@@ -62,7 +70,7 @@ static lv_obj_t* create_button(int16_t pos_x, int16_t pos_y, uint16_t width, uin
     lv_obj_center(label);
 
     return btn;
-    }
+}
 
 static void anim_zoom_cb(void *var, int32_t v)
 {
@@ -81,7 +89,6 @@ void ui_init(void)
 }
 
 void home_screen(void) {
-    // titlu 
     lv_obj_t * my_rect = create_rectangle(lv_scr_act(), 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0x9D4EDD);
     lv_obj_set_style_shadow_width(my_rect, 10, 0);
     lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
@@ -89,7 +96,6 @@ void home_screen(void) {
     lv_obj_t *symbol = create_label(my_rect, "\xEF\x80\x81", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_LEFT, 0, 35);
     lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_poppins_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
 
-    // optiuni 
     opt1 = create_label(lv_scr_act(), "1. Inregistare voce", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 0);
     opt2 = create_label(lv_scr_act(), "2. Ascultare", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 30);
     opt3 = create_label(lv_scr_act(), "3. Oprire", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 60);
@@ -97,7 +103,6 @@ void home_screen(void) {
 
 void record_screen_options(void)
 {
-     // titlu 
     lv_obj_t * my_rect = create_rectangle(lv_scr_act(), 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0x9D4EDD);
     lv_obj_set_style_shadow_width(my_rect, 10, 0);
     lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
@@ -109,34 +114,84 @@ void record_screen_options(void)
     opt2 = create_label(lv_scr_act(), "2. Inapoi la pagina\nprincipala", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 50);
 }
 
+void rec_anim_cb(void *obj, int32_t v)
+{
+    lv_obj_set_style_opa((lv_obj_t *)obj, v, 0);
+}
+
+void update_timer_cb(lv_timer_t *t)
+{
+    timer_data_t *data = (timer_data_t *)t->user_data;
+
+    uint32_t elapsed = to_ms_since_boot(get_absolute_time()) - data->start_time;
+
+    uint32_t seconds = elapsed / 1000;
+    uint32_t minutes = seconds / 60;
+    seconds = seconds % 60;
+
+    static char buf[16];
+    sprintf(buf, "%02d:%02d", minutes, seconds);
+
+    lv_label_set_text(data->label, buf);
+}
+
 void record_screen(void)
 {
-    lv_obj_t * my_rect = create_rectangle(lv_scr_act(), 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0x9D4EDD);
+    lv_obj_t *timer_label;
+    lv_obj_t *rec_label;
+    lv_timer_t *timer;
+
+
+    rec_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(rec_label, "REC");
+    lv_obj_align(rec_label, LV_ALIGN_TOP_LEFT, 10, 10);
+    lv_obj_set_style_text_color(rec_label, lv_color_hex(0xFF0000), 0);
+
+    lv_obj_t * my_rect = create_rectangle(lv_scr_act(), 120, 60,  LV_ALIGN_CENTER, 0,0, 0x9D4EDD);
     lv_obj_set_style_shadow_width(my_rect, 10, 0);
     lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
+
+    timer_label = lv_label_create(lv_scr_act());
+    lv_label_set_text(timer_label, "00:00");
+    lv_obj_align(timer_label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_text_color(timer_label, lv_color_hex(0xFFFFFF), 0);
+
+    timer_data_t *data = lv_mem_alloc(sizeof(timer_data_t));
+    data->label = timer_label;
+    data->start_time = to_ms_since_boot(get_absolute_time());
+
+    record_timer = lv_timer_create(update_timer_cb, 200, data);
+
+    opt1 = create_label(lv_scr_act(), LV_SYMBOL_STOP, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, 40, -20);
+    opt2 = create_label(lv_scr_act(), LV_SYMBOL_PAUSE, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, -40, -20);
+
+    static lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, rec_label);
+    lv_anim_set_exec_cb(&a, rec_anim_cb);
+    lv_anim_set_values(&a, LV_OPA_100, LV_OPA_20);
+    lv_anim_set_time(&a, 500);
+    lv_anim_set_playback_time(&a, 500);
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&a);    
 }
 
 void ui_set_opt_active(lv_obj_t *opt, bool is_active) {
 
     if(is_active) {
-        // fundal alb pe label (ca hover)
         lv_obj_set_style_bg_color(opt, lv_color_hex(0x9D4EDD), 0);
         lv_obj_set_style_bg_opa(opt, LV_OPA_COVER, 0);
 
-        // text negru
         lv_obj_set_style_text_color(opt, lv_color_hex(0xFFFFFF), 0);
 
-        // padding ca sa nu fie lipit textul de margine
         lv_obj_set_style_pad_left(opt, 6, 0);
         lv_obj_set_style_pad_right(opt, 6, 0);
         lv_obj_set_style_pad_top(opt, 3, 0);
         lv_obj_set_style_pad_bottom(opt, 3, 0);
 
     } else {
-        // eliminare fundal
         lv_obj_set_style_bg_opa(opt, LV_OPA_TRANSP, 0);
 
-        // text alb
         lv_obj_set_style_text_color(opt, lv_color_hex(0xB3B3B3), 0);
     }
 

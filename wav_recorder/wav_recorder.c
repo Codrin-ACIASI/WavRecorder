@@ -11,6 +11,7 @@ app_screen_t current_screen = SCREEN_HOME;
 extern lv_obj_t *opt1;
 extern lv_obj_t *opt2;
 extern lv_obj_t *opt3;
+extern lv_timer_t *record_timer;
 
 int main() {
     stdio_init_all();
@@ -64,6 +65,8 @@ int main() {
                 lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
                 record_screen_options();
                 current_screen = SCREEN_RECORD_OPTIONS;
+                last_btn1 = true;
+                sleep_ms(200);
             }
 
             if (btn1_pressed && !last_btn1 && current_option == 2) {
@@ -86,12 +89,11 @@ int main() {
             ui_set_opt_active(opt2, current_option == 1);
 
             if (btn1_pressed && !last_btn1 && current_option == 0) {
-                //
-                //Trebuie cu intreruperi pentru ca trece direct de la SCREEN_RECORD_OPTIONS la SCREEN_RECORD
-                //lv_obj_clean(lv_scr_act());
-                //lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
-                //record_screen();
+                lv_obj_clean(lv_scr_act());
+                lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
+                record_screen();
                 current_screen = SCREEN_RECORD;
+                last_btn1 = true;
             }
 
             if (btn1_pressed && !last_btn1 && current_option == 1) {
@@ -100,6 +102,48 @@ int main() {
                 home_screen();
                 current_screen = SCREEN_HOME;
                 current_option = 0;
+            }
+        }
+
+        if (current_screen == SCREEN_RECORD)
+        {
+            if (btn2_pressed && !last_btn2) {
+                current_option = (current_option + 1) % 2;
+            }
+
+            if (btn3_pressed && !last_btn3) {
+                current_option = (current_option - 1 + 2) % 2;
+            }
+
+            ui_set_opt_active(opt1, current_option == 0);
+            ui_set_opt_active(opt2, current_option == 1);
+
+            static bool paused = false;
+            
+            if (btn1_pressed && !last_btn1 && current_option == 0) {
+                if (record_timer) {
+                    lv_timer_del(record_timer);
+                    record_timer = NULL;
+                }
+                lv_obj_clean(lv_scr_act());
+                lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
+                home_screen();
+                current_screen = SCREEN_HOME;
+                current_option = 0;
+                paused = false;
+            }
+
+            if (btn1_pressed && !last_btn1 && current_option == 1) {
+
+                paused = !paused;
+
+                if (paused) {
+                    lv_label_set_text(opt2, LV_SYMBOL_PLAY);
+                    lv_timer_pause(record_timer);
+                } else {
+                    lv_label_set_text(opt2, LV_SYMBOL_PAUSE);
+                    lv_timer_resume(record_timer);
+                }
             }
         }
 
