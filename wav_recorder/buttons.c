@@ -1,5 +1,11 @@
 #include "buttons.h"
 #include "hardware/gpio.h"
+#include "pico/time.h"
+
+
+volatile bool flag1 = false;
+volatile bool flag2 = false;
+volatile bool flag3 = false;
 
 void init_button(uint32_t button){
     uint32_t pin_fizic = 0;
@@ -22,4 +28,26 @@ void init_button(uint32_t button){
     gpio_init(pin_fizic);
     gpio_set_dir(pin_fizic, GPIO_IN);
     gpio_pull_up(pin_fizic);
+}
+
+
+
+void gpio_callback(uint gpio, uint32_t events){
+    static uint32_t last_interrupt_time = 0;
+    uint32_t current_time = to_ms_since_boot(get_absolute_time());
+
+
+    if(current_time - last_interrupt_time > 300){
+        if(gpio == BUTON1){
+            flag1 = true;
+        }
+        if(gpio == BUTON2){
+            flag2 = true;
+        }
+        if(gpio == BUTON3){
+            flag3 = true;
+        }
+        last_interrupt_time = current_time;
+    }
+
 }

@@ -8,10 +8,10 @@
 #include "hardware/spi.h"
 
 app_screen_t current_screen = SCREEN_HOME;
-extern lv_obj_t *opt1;
-extern lv_obj_t *opt2;
-extern lv_obj_t *opt3;
 extern lv_timer_t *record_timer;
+
+
+
 
 int main() {
     stdio_init_all();
@@ -24,141 +24,158 @@ int main() {
     init_button(down_button);
     init_button(up_button);
 
-    int current_option = 0;
+    gpio_set_irq_enabled_with_callback(BUTON1, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+    gpio_set_irq_enabled(BUTON2, GPIO_IRQ_EDGE_FALL, true);
+    gpio_set_irq_enabled(BUTON3, GPIO_IRQ_EDGE_FALL, true);
+
+    home_menu_options current_option_for_home_screen = RECORD_BUTTON;
+    intermediate_record_screen_options current_option_for_intermediate_screen = START_RECORDING_BUTTON;
+    record_options current_option_for_record_screen = PAUSE_RECORD_BUTTON;
+
 
     ui_set_opt_active(opt1, true);
     ui_set_opt_active(opt2, false);
     ui_set_opt_active(opt3, false);
 
-    bool last_btn1 = false;
-    bool last_btn2 = false;
-    bool last_btn3 = false;
 
-    bool btn1_pressed = false;
-    bool btn2_pressed = false;
-    bool btn3_pressed = false;
-
-    while (true) {
+while (true) {
+        // LVGL își desenează liniștit ecranele
         lv_timer_handler();
         lv_tick_inc(5);
         sleep_ms(5);
 
-        btn1_pressed = !gpio_get(BUTON1);
-        btn2_pressed = !gpio_get(BUTON2);
-        btn3_pressed = !gpio_get(BUTON3);
-
-        if (current_screen == SCREEN_HOME) {
-            if (btn2_pressed && !last_btn2) {
-                current_option = (current_option + 1) % 3;
+        // ==========================================
+        // GESTIUNEA LOGICII PE BAZA FLAG-URILOR
+        // ==========================================
+        
+        switch(current_screen){
+            case SCREEN_HOME: 
+                    if (flag2) {
+                    flag2 = false; // "Coborâm" stegulețul
+                    current_option_for_home_screen = (current_option_for_home_screen + 1) % 3;
+                    ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
+                    ui_set_opt_active(opt2, current_option_for_home_screen == LISTEN_BUTTON);
+                    ui_set_opt_active(opt3, current_option_for_home_screen == STOP_BUTTON);
             }
 
-            if (btn3_pressed && !last_btn3) {
-                current_option = (current_option - 1 + 3) % 3;
+                if (flag3) {
+                    flag3 = false;
+                    current_option_for_home_screen = (current_option_for_home_screen - 1 + 3) % 3;
+                    ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
+                    ui_set_opt_active(opt2, current_option_for_home_screen == LISTEN_BUTTON);
+                    ui_set_opt_active(opt3, current_option_for_home_screen == STOP_BUTTON);
             }
 
-            ui_set_opt_active(opt1, current_option == 0);
-            ui_set_opt_active(opt2, current_option == 1);
-            ui_set_opt_active(opt3, current_option == 2);
-
-            if (btn1_pressed && !last_btn1 && current_option == 0) {
-                lv_obj_clean(lv_scr_act());
-                lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
-                record_screen_options();
-                current_screen = SCREEN_RECORD_OPTIONS;
-                last_btn1 = true;
-                sleep_ms(200);
+                if (flag1) {
+                    flag1 = false;
+                    if (current_option_for_home_screen == RECORD_BUTTON) {
+                    lv_obj_clean(lv_scr_act());
+                    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
+                    record_screen_options();
+                    current_option_for_intermediate_screen = START_RECORDING_BUTTON;
+                    ui_set_opt_active(opt1, current_option_for_intermediate_screen == START_RECORDING_BUTTON);
+                    current_screen = SCREEN_RECORD_OPTIONS;
+                } else if (current_option_for_home_screen == STOP_BUTTON) {
+                    lv_obj_clean(lv_scr_act());
+                    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x0), 0);
+                    current_screen = SCREEN_SLEEP_MODE;
+                }
+            }
+            break;
+            case SCREEN_RECORD_OPTIONS:
+                if (flag2) {
+                flag2 = false;
+                current_option_for_intermediate_screen = (current_option_for_intermediate_screen + 1) % 2;
+                ui_set_opt_active(opt1, current_option_for_intermediate_screen == START_RECORDING_BUTTON);
+                ui_set_opt_active(opt2, current_option_for_intermediate_screen == BACK_RECORDING_BUTTON);
             }
 
-            if (btn1_pressed && !last_btn1 && current_option == 2) {
-                lv_obj_clean(lv_scr_act());
-                lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x0), 0);
-                current_screen = SCREEN_SLEEP_MODE;
-            }
-        }
-
-        if (current_screen == SCREEN_RECORD_OPTIONS) {
-            if (btn2_pressed && !last_btn2) {
-                current_option = (current_option + 1) % 2;
+            if (flag3) {
+                flag3 = false;
+                current_option_for_intermediate_screen = (current_option_for_intermediate_screen - 1 + 2) % 2;
+                ui_set_opt_active(opt1, current_option_for_intermediate_screen == START_RECORDING_BUTTON);
+                ui_set_opt_active(opt2, current_option_for_intermediate_screen == BACK_RECORDING_BUTTON);
             }
 
-            if (btn3_pressed && !last_btn3) {
-                current_option = (current_option - 1 + 2) % 2;
+            if (flag1) {
+                flag1 = false;
+                if (current_option_for_intermediate_screen == START_RECORDING_BUTTON) {
+                    lv_obj_clean(lv_scr_act());
+                    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
+                    record_screen();
+                    current_option_for_record_screen = PAUSE_RECORD_BUTTON;
+                    ui_set_opt_active(opt1, current_option_for_record_screen == SAVE_RECORD_BUTTON);
+                    ui_set_opt_active(opt2, current_option_for_record_screen == PAUSE_RECORD_BUTTON);
+                    current_screen = SCREEN_RECORD;
+                } else if (current_option_for_intermediate_screen == BACK_RECORDING_BUTTON) {
+                    lv_obj_clean(lv_scr_act());
+                    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
+                    home_screen();
+                    current_screen = SCREEN_HOME;
+                    current_option_for_home_screen = RECORD_BUTTON;
+                    ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
+                }
             }
+            break;
+            case SCREEN_RECORD:
+                        
+                if (flag2) {
+                    flag2 = false;
+                    current_option_for_record_screen = (current_option_for_record_screen + 1) % 2;
+                    ui_set_opt_active(opt1, current_option_for_record_screen == SAVE_RECORD_BUTTON);
+                    ui_set_opt_active(opt2, current_option_for_record_screen == PAUSE_RECORD_BUTTON);
+                }
 
-            ui_set_opt_active(opt1, current_option == 0);
-            ui_set_opt_active(opt2, current_option == 1);
+                if (flag3) {
+                    flag3 = false;
+                    current_option_for_record_screen = (current_option_for_record_screen - 1 + 2) % 2;
+                    ui_set_opt_active(opt1, current_option_for_record_screen == SAVE_RECORD_BUTTON);
+                    ui_set_opt_active(opt2, current_option_for_record_screen == PAUSE_RECORD_BUTTON);
+                }
 
-            if (btn1_pressed && !last_btn1 && current_option == 0) {
-                lv_obj_clean(lv_scr_act());
-                lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
-                record_screen();
-                current_screen = SCREEN_RECORD;
-                last_btn1 = true;
-            }
-
-            if (btn1_pressed && !last_btn1 && current_option == 1) {
-                lv_obj_clean(lv_scr_act());
-                lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
-                home_screen();
-                current_screen = SCREEN_HOME;
-                current_option = 0;
-            }
-        }
-
-        if (current_screen == SCREEN_RECORD)
-        {
-            if (btn2_pressed && !last_btn2) {
-                current_option = (current_option + 1) % 2;
-            }
-
-            if (btn3_pressed && !last_btn3) {
-                current_option = (current_option - 1 + 2) % 2;
-            }
-
-            ui_set_opt_active(opt1, current_option == 0);
-            ui_set_opt_active(opt2, current_option == 1);
-
-            static bool paused = false;
+                static bool paused = false;
             
-            if (btn1_pressed && !last_btn1 && current_option == 0) {
-                if (record_timer) {
-                    lv_timer_del(record_timer);
-                    record_timer = NULL;
+                if (flag1) {
+                    flag1 = false;
+                    if (current_option_for_record_screen == SAVE_RECORD_BUTTON) {
+                        if (record_timer) {
+                            lv_timer_del(record_timer);
+                            record_timer = NULL;
+                        }
+                        lv_obj_clean(lv_scr_act());
+                        lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
+                        home_screen();
+                        current_screen = SCREEN_HOME;
+                        current_option_for_home_screen = RECORD_BUTTON;
+                        ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
+                        paused = false;
+                    } else if (current_option_for_record_screen == PAUSE_RECORD_BUTTON) {
+                        paused = !paused;
+                        if (paused) {
+                            lv_label_set_text(opt2, LV_SYMBOL_PLAY);
+                            lv_timer_pause(record_timer);
+                        } else {
+                            lv_label_set_text(opt2, LV_SYMBOL_PAUSE);
+                            lv_timer_resume(record_timer);
+                        }
+                    }
                 }
-                lv_obj_clean(lv_scr_act());
-                lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
-                home_screen();
-                current_screen = SCREEN_HOME;
-                current_option = 0;
-                paused = false;
+            break;
+            case SCREEN_SLEEP_MODE:
+                if (flag2 || flag3) {
+                    flag2 = false;
+                    flag3 = false;
+                    // Dacă oricare buton de direcție este apăsat, ieșim din Sleep
+                    lv_obj_clean(lv_scr_act());
+                    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
+                    home_screen();
+                    current_screen = SCREEN_HOME;
+                    current_option_for_home_screen = RECORD_BUTTON;
             }
-
-            if (btn1_pressed && !last_btn1 && current_option == 1) {
-
-                paused = !paused;
-
-                if (paused) {
-                    lv_label_set_text(opt2, LV_SYMBOL_PLAY);
-                    lv_timer_pause(record_timer);
-                } else {
-                    lv_label_set_text(opt2, LV_SYMBOL_PAUSE);
-                    lv_timer_resume(record_timer);
-                }
-            }
+                // Curățăm preventiv și butonul de select ca să nu facă acțiuni neașteptate la trezire
+                flag1 = false; 
+            break;
         }
-
-        if (current_screen == SCREEN_SLEEP_MODE) {
-            if ((btn2_pressed && !last_btn2) || (btn3_pressed && !last_btn3)) {
-                lv_obj_clean(lv_scr_act());
-                lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
-                home_screen();
-                current_screen = SCREEN_HOME;
-                current_option = 0;
-            }
-        }
-
-        last_btn1 = btn1_pressed;
-        last_btn2 = btn2_pressed;
-        last_btn3 = btn3_pressed;
+            
     }
 }

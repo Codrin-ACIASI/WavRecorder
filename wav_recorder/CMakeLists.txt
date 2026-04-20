@@ -62,6 +62,7 @@ target_link_libraries(wav_recorder
     pico_stdlib 
     hardware_spi 
     hardware_gpio 
+    pico_time
     lvgl  
     no-OS-FatFS-SD-SDIO-SPI-RPi-Pico
 )

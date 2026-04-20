@@ -94,7 +94,7 @@ void home_screen(void) {
     lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
 
     lv_obj_t *symbol = create_label(my_rect, "\xEF\x80\x81", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_LEFT, 0, 35);
-    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_poppins_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
+    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
 
     opt1 = create_label(lv_scr_act(), "1. Inregistare voce", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 0);
     opt2 = create_label(lv_scr_act(), "2. Ascultare", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 30);
@@ -108,7 +108,7 @@ void record_screen_options(void)
     lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
 
     lv_obj_t *symbol = create_label(my_rect, "\xEF\x80\x81", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_LEFT, 0, 35);
-    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_poppins_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
+    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
 
     opt1 = create_label(lv_scr_act(), "1. Inregistreaza", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 0);
     opt2 = create_label(lv_scr_act(), "2. Inapoi la pagina\nprincipala", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 50);
