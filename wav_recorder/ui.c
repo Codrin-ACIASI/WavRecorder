@@ -2,10 +2,25 @@
 #include "lvgl.h"
 #include "pico/stdlib.h"
 #include <stdio.h>
+#include "buttons.h"
+#include "display_port.h"
+
 // Păstrăm un pointer către opt1, opt2 si opt3 ca să o putem modifica mai târziu din exterior
 lv_obj_t *opt1;
 lv_obj_t *opt2;
 lv_obj_t *opt3;
+
+static lv_obj_t * high_label;
+static lv_obj_t * low_label;
+static int32_t top_num;
+static int32_t bottom_num;
+static bool update_scroll_running = false;
+
+
+volatile home_menu_options current_option_for_home_screen = RECORD_BUTTON;
+volatile intermediate_record_screen_options current_option_for_intermediate_screen = START_RECORDING_BUTTON;
+volatile record_options current_option_for_record_screen = PAUSE_RECORD_BUTTON;
+volatile app_screen_t current_screen = SCREEN_HOME;
 
 typedef struct {
     lv_obj_t *label;
@@ -13,6 +28,10 @@ typedef struct {
 } timer_data_t;
 
 lv_timer_t *record_timer = NULL;
+
+static inline int safe_modulo(int val, int max_val) {
+    return ((val % max_val) + max_val) % max_val;
+}
 
 static lv_obj_t* create_rectangle(lv_obj_t* parent, uint8_t width, uint8_t height, lv_align_t align, uint8_t x_ofs, uint8_t y_ofs, uint32_t color){
     lv_obj_t* new_rectangle = lv_obj_create(parent);
@@ -72,111 +91,7 @@ static lv_obj_t* create_button(int16_t pos_x, int16_t pos_y, uint16_t width, uin
     return btn;
 }
 
-static void anim_zoom_cb(void *var, int32_t v)
-{
-    lv_obj_set_style_transform_zoom(var, v, 0);
-    lv_obj_set_style_transform_pivot_x(var, lv_obj_get_width(var) / 2, 0);
-    lv_obj_set_style_transform_pivot_y(var, lv_obj_get_height(var) / 2, 0);
-}
-
-void ui_init(void)
-{
-    lv_obj_t *symbol = lv_label_create(lv_scr_act());
-    lv_obj_set_style_text_font(symbol, &lv_font_montserrat_32, 0);
-    lv_label_set_text(symbol, LV_SYMBOL_AUDIO);
-    lv_obj_set_style_text_color(symbol, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(symbol, LV_ALIGN_CENTER, 0, 0);  
-}
-
-void home_screen(void) {
-    lv_obj_t * my_rect = create_rectangle(lv_scr_act(), 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0x9D4EDD);
-    lv_obj_set_style_shadow_width(my_rect, 10, 0);
-    lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
-
-    lv_obj_t *symbol = create_label(my_rect, "\xEF\x80\x81", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_LEFT, 0, 35);
-    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
-
-    opt1 = create_label(lv_scr_act(), "1. Inregistare voce", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 0);
-    opt2 = create_label(lv_scr_act(), "2. Ascultare", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 30);
-    opt3 = create_label(lv_scr_act(), "3. Oprire", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 60);
-}
-
-void record_screen_options(void)
-{
-    lv_obj_t * my_rect = create_rectangle(lv_scr_act(), 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0x9D4EDD);
-    lv_obj_set_style_shadow_width(my_rect, 10, 0);
-    lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
-
-    lv_obj_t *symbol = create_label(my_rect, "\xEF\x80\x81", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_LEFT, 0, 35);
-    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
-
-    opt1 = create_label(lv_scr_act(), "1. Inregistreaza", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 0);
-    opt2 = create_label(lv_scr_act(), "2. Inapoi la pagina\nprincipala", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 50);
-}
-
-void rec_anim_cb(void *obj, int32_t v)
-{
-    lv_obj_set_style_opa((lv_obj_t *)obj, v, 0);
-}
-
-void update_timer_cb(lv_timer_t *t)
-{
-    timer_data_t *data = (timer_data_t *)t->user_data;
-
-    uint32_t elapsed = to_ms_since_boot(get_absolute_time()) - data->start_time;
-
-    uint32_t seconds = elapsed / 1000;
-    uint32_t minutes = seconds / 60;
-    seconds = seconds % 60;
-
-    static char buf[16];
-    sprintf(buf, "%02d:%02d", minutes, seconds);
-
-    lv_label_set_text(data->label, buf);
-}
-
-void record_screen(void)
-{
-    lv_obj_t *timer_label;
-    lv_obj_t *rec_label;
-    lv_timer_t *timer;
-
-
-    rec_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(rec_label, "REC");
-    lv_obj_align(rec_label, LV_ALIGN_TOP_LEFT, 10, 10);
-    lv_obj_set_style_text_color(rec_label, lv_color_hex(0xFF0000), 0);
-
-    lv_obj_t * my_rect = create_rectangle(lv_scr_act(), 120, 60,  LV_ALIGN_CENTER, 0,0, 0x9D4EDD);
-    lv_obj_set_style_shadow_width(my_rect, 10, 0);
-    lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
-
-    timer_label = lv_label_create(lv_scr_act());
-    lv_label_set_text(timer_label, "00:00");
-    lv_obj_align(timer_label, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_set_style_text_color(timer_label, lv_color_hex(0xFFFFFF), 0);
-
-    timer_data_t *data = lv_mem_alloc(sizeof(timer_data_t));
-    data->label = timer_label;
-    data->start_time = to_ms_since_boot(get_absolute_time());
-
-    record_timer = lv_timer_create(update_timer_cb, 200, data);
-
-    opt1 = create_label(lv_scr_act(), LV_SYMBOL_STOP, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, 40, -20);
-    opt2 = create_label(lv_scr_act(), LV_SYMBOL_PAUSE, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, -40, -20);
-
-    static lv_anim_t a;
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, rec_label);
-    lv_anim_set_exec_cb(&a, rec_anim_cb);
-    lv_anim_set_values(&a, LV_OPA_100, LV_OPA_20);
-    lv_anim_set_time(&a, 500);
-    lv_anim_set_playback_time(&a, 500);
-    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
-    lv_anim_start(&a);    
-}
-
-void ui_set_opt_active(lv_obj_t *opt, bool is_active) {
+static void ui_set_opt_active(lv_obj_t *opt, bool is_active) {
 
     if(is_active) {
         lv_obj_set_style_bg_color(opt, lv_color_hex(0x9D4EDD), 0);
@@ -197,3 +112,338 @@ void ui_set_opt_active(lv_obj_t *opt, bool is_active) {
 
     lv_obj_invalidate(opt);
 }
+
+static void anim_zoom_cb(void *var, int32_t v)
+{
+    lv_obj_set_style_transform_zoom(var, v, 0);
+    lv_obj_set_style_transform_pivot_x(var, lv_obj_get_width(var) / 2, 0);
+    lv_obj_set_style_transform_pivot_y(var, lv_obj_get_height(var) / 2, 0);
+}
+
+
+static lv_obj_t* load_item(lv_obj_t * parent, int32_t num){
+    lv_obj_t * obj = (lv_obj_t *) lv_obj_create(parent);
+    lv_obj_set_size(obj, LV_PCT(100), LV_SIZE_CONTENT);
+    lv_obj_t * label = lv_label_create(obj);
+    lv_label_set_text_fmt(label, "%", PRId32, num);
+    return obj;
+}
+
+static void update_scroll(lv_obj_t* obj){
+    if(update_scroll_running) return;
+    update_scroll_running = true;
+
+    int32_t top_num_original = top_num;
+    int32_t bottom_num_original = bottom_num;
+
+    while (top_num > -30 && lv_obj_get_scroll_top(obj) < 200){
+        bottom_num = -1;
+        load_item(obj, bottom_num);
+        lv_obj_update_layout(obj);
+        LV_LOG_USER("loaded bottom num: %", PRId32, bottom_num);
+    }
+    while (top_num < 30 && lv_obj_get_scroll_top(obj) < 200){
+        top_num += 1;
+        int32_t bottom_before = lv_obj_get_scroll_bottom(obj);
+        lv_obj_t* new_item = load_item(obj, top_num);
+        lv_obj_move_to_index(new_item, 0);
+        lv_obj_update_layout(obj);
+        int32_t bottom_after = lv_obj_get_scroll_bottom(obj);
+        lv_obj_scroll_by(obj, 0, bottom_before - bottom_after, LV_ANIM_OFF);
+        LV_LOG_USER("loaded top num: %", PRId32, top_num);
+    }
+
+    while(lv_obj_get_scroll_bottom(obj) > 600) {
+        bottom_num += 1;
+        lv_obj_t * child = lv_obj_get_child(obj, -1);
+        lv_obj_del(child);
+        lv_obj_update_layout(obj);
+        LV_LOG_USER("deleted bottom num: %" PRId32, bottom_num);
+    }
+
+    while(lv_obj_get_scroll_top(obj) > 600) {
+        top_num -= 1;
+        int32_t bottom_before = lv_obj_get_scroll_bottom(obj);
+        lv_obj_t * child = lv_obj_get_child(obj, 0);
+        lv_obj_del(child);
+        lv_obj_update_layout(obj);
+        int32_t bottom_after = lv_obj_get_scroll_bottom(obj);
+        lv_obj_scroll_by(obj, 0, bottom_before - bottom_after, LV_ANIM_OFF);
+        LV_LOG_USER("deleted top num: %" PRId32, top_num);
+    }
+    
+    
+}
+
+static void change_focus(app_screen_t current_screen, int8_t direction ){
+    switch (current_screen)
+    {
+    case SCREEN_HOME:
+        current_option_for_home_screen = safe_modulo(current_option_for_home_screen + direction, 3);
+        ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
+        ui_set_opt_active(opt2, current_option_for_home_screen == LISTEN_BUTTON);
+        ui_set_opt_active(opt3, current_option_for_home_screen == STOP_BUTTON);
+        break;
+    case SCREEN_RECORD_OPTIONS:
+        current_option_for_intermediate_screen = safe_modulo(current_option_for_intermediate_screen + direction, 2);
+        ui_set_opt_active(opt1, current_option_for_intermediate_screen == START_RECORDING_BUTTON);
+        ui_set_opt_active(opt2, current_option_for_intermediate_screen == BACK_RECORDING_BUTTON);
+    break;
+    case SCREEN_RECORD:
+        current_option_for_record_screen = safe_modulo(current_option_for_record_screen + direction, 2);
+        ui_set_opt_active(opt1, current_option_for_record_screen == SAVE_RECORD_BUTTON);
+        ui_set_opt_active(opt2, current_option_for_record_screen == PAUSE_RECORD_BUTTON);
+    break;
+    }
+}
+
+static lv_obj_t *home_screen(void) {
+    lv_obj_t* home_scr = lv_obj_create(NULL);
+
+    lv_obj_set_style_bg_color(home_scr, lv_color_hex(0x121212), 0);
+
+    lv_obj_t * my_rect = create_rectangle(home_scr, 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0x9D4EDD);
+    lv_obj_set_style_shadow_width(my_rect, 10, 0);
+    lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
+
+    lv_obj_t *symbol = create_label(my_rect, "\xEF\x80\x81", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_LEFT, 0, 35);
+    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
+
+    opt1 = create_label(home_scr, "1. Inregistare voce", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 0);
+    opt2 = create_label(home_scr, "2. Ascultare", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 30);
+    opt3 = create_label(home_scr, "3. Oprire", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 60);
+
+    return home_scr;
+}
+
+static lv_obj_t *record_options_screen(void)
+{
+    lv_obj_t* record_options_scr = lv_obj_create(NULL);
+
+    lv_obj_set_style_bg_color(record_options_scr, lv_color_hex(0x121212), 0);
+
+    lv_obj_t * my_rect = create_rectangle(record_options_scr, 240, 120,  LV_ALIGN_TOP_MID, 0,0, 0x9D4EDD);
+    lv_obj_set_style_shadow_width(my_rect, 10, 0);
+    lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
+
+    lv_obj_t *symbol = create_label(my_rect, "\xEF\x80\x81", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_LEFT, 0, 35);
+    lv_obj_t *label = create_label(my_rect, "Echo Note", &lv_font_montserrat_32, 0XFFFFFF, LV_ALIGN_TOP_MID, 25, 35);
+
+    opt1 = create_label(record_options_scr, "1. Inregistreaza", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 0);
+    opt2 = create_label(record_options_scr, "2. Inapoi la pagina\nprincipala", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 50);
+    
+
+    return record_options_scr;
+
+}
+
+
+static void start_symbol(void)
+{
+    lv_obj_t *symbol = lv_label_create(lv_scr_act());
+    lv_obj_set_style_text_font(symbol, &lv_font_montserrat_32, 0);
+    lv_label_set_text(symbol, LV_SYMBOL_AUDIO);
+    lv_obj_set_style_text_color(symbol, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_align(symbol, LV_ALIGN_CENTER, 0, 0);  
+}
+
+static void rec_anim_cb(void *obj, int32_t v)
+{
+    lv_obj_set_style_opa((lv_obj_t *)obj, v, 0);
+}
+
+static void update_timer_cb(lv_timer_t *t)
+{
+    timer_data_t *data = (timer_data_t *)t->user_data;
+
+    uint32_t elapsed = to_ms_since_boot(get_absolute_time()) - data->start_time;
+
+    uint32_t seconds = elapsed / 1000;
+    uint32_t minutes = seconds / 60;
+    seconds = seconds % 60;
+
+    static char buf[16];
+    sprintf(buf, "%02d:%02d", minutes, seconds);
+
+    lv_label_set_text(data->label, buf);
+}
+
+
+static lv_obj_t *record_screen(void)
+{
+    lv_obj_t *timer_label;
+    lv_obj_t *rec_label;
+    lv_timer_t *timer;
+
+    lv_obj_t *record_scr = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(record_scr, lv_color_hex(0x121212), 0);
+
+
+    rec_label = lv_label_create(record_scr);
+    lv_label_set_text(rec_label, "REC");
+    lv_obj_align(rec_label, LV_ALIGN_TOP_LEFT, 10, 10);
+    lv_obj_set_style_text_color(rec_label, lv_color_hex(0xFF0000), 0);
+
+    lv_obj_t * my_rect = create_rectangle(record_scr, 120, 60,  LV_ALIGN_CENTER, 0,0, 0x9D4EDD);
+    lv_obj_set_style_shadow_width(my_rect, 10, 0);
+    lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
+
+    timer_label = lv_label_create(record_scr);
+    lv_label_set_text(timer_label, "00:00");
+    lv_obj_align(timer_label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_text_color(timer_label, lv_color_hex(0xFFFFFF), 0);
+
+    timer_data_t *data = lv_mem_alloc(sizeof(timer_data_t));
+    data->label = timer_label;
+    data->start_time = to_ms_since_boot(get_absolute_time());
+
+    record_timer = lv_timer_create(update_timer_cb, 200, data);
+
+    opt1 = create_label(record_scr, LV_SYMBOL_STOP, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, 40, -20);
+    opt2 = create_label(record_scr, LV_SYMBOL_PAUSE, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, -40, -20);
+
+    static lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, rec_label);
+    lv_anim_set_exec_cb(&a, rec_anim_cb);
+    lv_anim_set_values(&a, LV_OPA_100, LV_OPA_20);
+    lv_anim_set_time(&a, 500);
+    lv_anim_set_playback_time(&a, 500);
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&a);    
+
+    return record_scr;
+}
+
+void home_screen_logic(void){
+            if (flag2) {
+                    flag2 = false; 
+                    change_focus(current_screen, 1);
+            }
+
+            if (flag3) {
+                    flag3 = false;
+                    change_focus(current_screen, -1);
+            }
+
+                if (flag1) {
+                    flag1 = false;
+                    if (current_option_for_home_screen == RECORD_BUTTON) {
+                    lv_scr_load_anim(record_options_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+                    current_option_for_intermediate_screen = START_RECORDING_BUTTON;
+                    ui_set_opt_active(opt1, current_option_for_intermediate_screen == START_RECORDING_BUTTON);
+                    current_screen = SCREEN_RECORD_OPTIONS;
+                } else if (current_option_for_home_screen == STOP_BUTTON) {
+                    lv_obj_clean(lv_scr_act());
+                    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x0), 0);
+                    current_screen = SCREEN_SLEEP_MODE;
+                }
+            }
+}
+
+void intermediate_screen_logic(void){
+        if (flag2) {
+                flag2 = false;
+                change_focus(current_screen, 1);
+            }
+
+            if (flag3) {
+                flag3 = false;
+                change_focus(current_screen, -1);
+            }
+
+            if (flag1) {
+                flag1 = false;
+                if (current_option_for_intermediate_screen == START_RECORDING_BUTTON) {
+                    lv_obj_clean(lv_scr_act());
+                    lv_scr_load_anim(record_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+                    current_option_for_record_screen = PAUSE_RECORD_BUTTON;
+                    ui_set_opt_active(opt1, current_option_for_record_screen == SAVE_RECORD_BUTTON);
+                    ui_set_opt_active(opt2, current_option_for_record_screen == PAUSE_RECORD_BUTTON);
+                    current_screen = SCREEN_RECORD;
+                } else if (current_option_for_intermediate_screen == BACK_RECORDING_BUTTON) {
+                    lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+                    current_screen = SCREEN_HOME;
+                    current_option_for_home_screen = RECORD_BUTTON;
+                    ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
+                }
+            
+            }
+}
+
+void record_screen_logic(){
+                          
+                if (flag2) {
+                    flag2 = false;
+                    change_focus(current_screen, 1);
+
+                }
+
+                if (flag3) {
+                    flag3 = false;
+                    change_focus(current_screen, -1);
+                }
+
+                static bool paused = false;
+            
+                if (flag1) {
+                    flag1 = false;
+                    if (current_option_for_record_screen == SAVE_RECORD_BUTTON) {
+                        if (record_timer) {
+                            lv_timer_del(record_timer);
+                            record_timer = NULL;
+                        }
+                        lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+                        current_screen = SCREEN_HOME;
+                        current_option_for_home_screen = RECORD_BUTTON;
+                        ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
+                        paused = false;
+                    } else if (current_option_for_record_screen == PAUSE_RECORD_BUTTON) {
+                        paused = !paused;
+                        if (paused) {
+                            lv_label_set_text(opt2, LV_SYMBOL_PLAY);
+                            lv_timer_pause(record_timer);
+                        } else {
+                            lv_label_set_text(opt2, LV_SYMBOL_PAUSE);
+                            lv_timer_resume(record_timer);
+                        }
+                    }
+                }
+}
+static void initial_focus(){
+    ui_set_opt_active(opt1, true);
+    ui_set_opt_active(opt2, false);
+    ui_set_opt_active(opt3, false);
+}
+void sleep_screen_logic(void){
+     if (flag2 || flag3) {
+                    flag2 = false;
+                    flag3 = false;
+                    // Dacă oricare buton de direcție este apăsat, ieșim din Sleep
+                    lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+                    current_screen = SCREEN_HOME;
+                    current_option_for_home_screen = RECORD_BUTTON;
+            }
+                // Curățăm preventiv și butonul de select ca să nu facă acțiuni neașteptate la trezire
+                flag1 = false; 
+}
+
+void ui_init(void){
+    stdio_init_all();
+    display_port_init();
+
+    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
+    lv_obj_t* home = home_screen();
+    lv_scr_load(home);
+
+    init_button(select_button);
+    init_button(down_button);
+    init_button(up_button);
+
+    gpio_set_irq_enabled_with_callback(BUTON1, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+    gpio_set_irq_enabled(BUTON2, GPIO_IRQ_EDGE_FALL, true);
+    gpio_set_irq_enabled(BUTON3, GPIO_IRQ_EDGE_FALL, true);
+
+    initial_focus();
+}
+
