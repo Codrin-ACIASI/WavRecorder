@@ -30,8 +30,14 @@ while (true) {
             case SCREEN_RECORD_OPTIONS:
                 intermediate_screen_logic();
             break;
+            case SCREEN_LISTEN_MENU:
+                listen_menu_logic();
+            break;
             case SCREEN_RECORD:
                 record_screen_logic();
+            break;
+            case SCREEN_PLAYBACK:
+                playback_logic();
             break;
             case SCREEN_SLEEP_MODE:
                sleep_screen_logic();

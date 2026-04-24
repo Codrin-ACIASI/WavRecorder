@@ -13,6 +13,8 @@ typedef enum {
     SCREEN_HOME,
     SCREEN_RECORD_OPTIONS,
     SCREEN_RECORD,
+    SCREEN_LISTEN_MENU,
+    SCREEN_PLAYBACK,
     SCREEN_SLEEP_MODE
 } app_screen_t;
 
@@ -33,10 +35,16 @@ typedef enum{
 } record_options;
 
 
+typedef enum{
+    PLAY_PAUSE_BUTTON,
+    STOP_BACK_BUTTON
+} playback_options;
+
 extern volatile app_screen_t current_screen;
 extern volatile home_menu_options current_option_for_home_screen;
 extern volatile intermediate_record_screen_options current_option_for_intermediate_screen;
 extern volatile record_options current_option_for_record_screen;
+extern volatile playback_options current_option_for_playback_screen;
 
 
 
@@ -45,6 +53,8 @@ void ui_init(void);
 void home_screen_logic(void);
 void intermediate_screen_logic(void);
 void record_screen_logic(void);
+void listen_menu_logic(void);
+void playback_logic(void);
 void sleep_screen_logic(void);
 
 #endif

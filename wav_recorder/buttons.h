@@ -15,7 +15,7 @@
 extern volatile bool flag1;
 extern volatile bool flag2;
 extern volatile bool flag3;
-
+extern volatile bool flag1_long;
 enum my_buttons{
     select_button = 1,
     up_button = 2,

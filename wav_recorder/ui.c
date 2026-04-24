@@ -5,6 +5,10 @@
 #include "buttons.h"
 #include "display_port.h"
 
+
+#define MAX_FILES_TO_DISPLAY 10
+
+
 // Păstrăm un pointer către opt1, opt2 si opt3 ca să o putem modifica mai târziu din exterior
 lv_obj_t *opt1;
 lv_obj_t *opt2;
@@ -21,6 +25,11 @@ volatile home_menu_options current_option_for_home_screen = RECORD_BUTTON;
 volatile intermediate_record_screen_options current_option_for_intermediate_screen = START_RECORDING_BUTTON;
 volatile record_options current_option_for_record_screen = PAUSE_RECORD_BUTTON;
 volatile app_screen_t current_screen = SCREEN_HOME;
+volatile playback_options current_option_for_playback_screen = PLAY_PAUSE_BUTTON;
+
+volatile int current_file_index = 0;
+volatile int total_files_found = 0;
+lv_obj_t *file_list_container =  NULL;
 
 typedef struct {
     lv_obj_t *label;
@@ -28,6 +37,7 @@ typedef struct {
 } timer_data_t;
 
 lv_timer_t *record_timer = NULL;
+lv_timer_t *playback_timer = NULL;
 
 static inline int safe_modulo(int val, int max_val) {
     return ((val % max_val) + max_val) % max_val;
@@ -120,60 +130,13 @@ static void anim_zoom_cb(void *var, int32_t v)
     lv_obj_set_style_transform_pivot_y(var, lv_obj_get_height(var) / 2, 0);
 }
 
-
-static lv_obj_t* load_item(lv_obj_t * parent, int32_t num){
-    lv_obj_t * obj = (lv_obj_t *) lv_obj_create(parent);
-    lv_obj_set_size(obj, LV_PCT(100), LV_SIZE_CONTENT);
-    lv_obj_t * label = lv_label_create(obj);
-    lv_label_set_text_fmt(label, "%", PRId32, num);
-    return obj;
+static void initial_focus(){
+    ui_set_opt_active(opt1, true);
+    ui_set_opt_active(opt2, false);
+    ui_set_opt_active(opt3, false);
 }
 
-static void update_scroll(lv_obj_t* obj){
-    if(update_scroll_running) return;
-    update_scroll_running = true;
 
-    int32_t top_num_original = top_num;
-    int32_t bottom_num_original = bottom_num;
-
-    while (top_num > -30 && lv_obj_get_scroll_top(obj) < 200){
-        bottom_num = -1;
-        load_item(obj, bottom_num);
-        lv_obj_update_layout(obj);
-        LV_LOG_USER("loaded bottom num: %", PRId32, bottom_num);
-    }
-    while (top_num < 30 && lv_obj_get_scroll_top(obj) < 200){
-        top_num += 1;
-        int32_t bottom_before = lv_obj_get_scroll_bottom(obj);
-        lv_obj_t* new_item = load_item(obj, top_num);
-        lv_obj_move_to_index(new_item, 0);
-        lv_obj_update_layout(obj);
-        int32_t bottom_after = lv_obj_get_scroll_bottom(obj);
-        lv_obj_scroll_by(obj, 0, bottom_before - bottom_after, LV_ANIM_OFF);
-        LV_LOG_USER("loaded top num: %", PRId32, top_num);
-    }
-
-    while(lv_obj_get_scroll_bottom(obj) > 600) {
-        bottom_num += 1;
-        lv_obj_t * child = lv_obj_get_child(obj, -1);
-        lv_obj_del(child);
-        lv_obj_update_layout(obj);
-        LV_LOG_USER("deleted bottom num: %" PRId32, bottom_num);
-    }
-
-    while(lv_obj_get_scroll_top(obj) > 600) {
-        top_num -= 1;
-        int32_t bottom_before = lv_obj_get_scroll_bottom(obj);
-        lv_obj_t * child = lv_obj_get_child(obj, 0);
-        lv_obj_del(child);
-        lv_obj_update_layout(obj);
-        int32_t bottom_after = lv_obj_get_scroll_bottom(obj);
-        lv_obj_scroll_by(obj, 0, bottom_before - bottom_after, LV_ANIM_OFF);
-        LV_LOG_USER("deleted top num: %" PRId32, top_num);
-    }
-    
-    
-}
 
 static void change_focus(app_screen_t current_screen, int8_t direction ){
     switch (current_screen)
@@ -315,117 +278,307 @@ static lv_obj_t *record_screen(void)
     return record_scr;
 }
 
+
+static lv_obj_t* listen_menu_screen(){
+    lv_obj_t *listen_scr= lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(listen_scr, lv_color_hex(0x121212), 0);
+
+    lv_obj_t *header = create_rectangle(listen_scr, 240, 40, LV_ALIGN_TOP_MID, 0, 0, 0x9D4EDD);
+    create_label(header, "Fisiere .WAV", &lv_font_montserrat_20, 0xFFFFFF, LV_ALIGN_CENTER, 0, 0);
+
+
+    file_list_container = lv_obj_create(listen_scr);
+    lv_obj_set_size(file_list_container, 240, 280);
+    lv_obj_align(file_list_container, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_color(file_list_container, lv_color_hex(0x121212), 0);
+    lv_obj_set_style_border_width(file_list_container, 0, 0);
+
+    lv_obj_set_flex_flow(file_list_container, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_all(file_list_container, 5, 0);
+
+    total_files_found = 8;
+
+    for(int i = 0; i < total_files_found; ++i){
+        char filename[20];
+        sprintf(filename, " REC_%03d.WAV", i + 1);
+
+        lv_obj_t* item = lv_label_create(file_list_container);
+        lv_label_set_text(item, filename);
+        lv_obj_set_style_text_font(item, &lv_font_montserrat_20, 0);
+        lv_obj_set_style_pad_all(item, 10, 0);
+        lv_obj_set_width(item, lv_pct(100));
+
+        if(i == 0) {
+            lv_obj_set_style_bg_color(item, lv_color_hex(0x9D4EDD), 0);
+            lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
+            lv_obj_set_style_text_color(item, lv_color_hex(0xFFFFFF), 0);
+        } else {
+            lv_obj_set_style_bg_opa(item, LV_OPA_TRANSP, 0);
+            lv_obj_set_style_text_color(item, lv_color_hex(0xB3B3B3), 0);
+        }
+
+    }
+
+    return listen_scr;
+
+}
+
+static lv_obj_t *playback_screen(int file_index){
+
+    lv_obj_t *timer_label;
+    lv_obj_t *filename_label;
+
+    lv_obj_t *play_scr = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(play_scr, lv_color_hex(0x121212), 0);
+
+    char filename[20];
+    sprintf(filename, "REC_%03d.WAV", file_index + 1);
+
+    filename_label = lv_label_create(play_scr);
+    lv_label_set_text(filename_label, filename);
+    lv_obj_align(filename_label, LV_ALIGN_TOP_MID, 0, 10);
+    lv_obj_set_style_text_color(filename_label, lv_color_hex(0x9D4EDD), 0);
+    lv_obj_set_style_text_font(filename_label, &lv_font_montserrat_20, 0);
+
+    lv_obj_t *my_rect = create_rectangle(play_scr, 120, 60, LV_ALIGN_CENTER, 0, 0, 0x9D4EDD);
+    lv_obj_set_style_shadow_width(my_rect, 10, 0);
+    lv_obj_set_style_shadow_opa(my_rect, LV_OPA_30, 0);
+
+    timer_label = lv_label_create(play_scr);
+    lv_label_set_text(timer_label, "00:00");
+    lv_obj_align(timer_label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_text_color(timer_label, lv_color_hex(0xFFFFFF), 0);
+
+
+    timer_data_t *data = lv_mem_alloc(sizeof(timer_data_t));
+    data->label = timer_label;
+    data->start_time = to_ms_since_boot(get_absolute_time());
+
+    playback_timer = lv_timer_create(update_timer_cb, 200, data);
+
+    opt1 = create_label(play_scr, LV_SYMBOL_PAUSE, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, -40, -20); 
+    opt2 = create_label(play_scr, LV_SYMBOL_STOP, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, 40, -20);  
+
+    
+    return play_scr;
+}
+
+void listen_menu_logic(void){
+    if(total_files_found == 0){
+        return;
+    }
+
+    if(flag2){
+        flag2 = false;
+
+        lv_obj_t *old_item = lv_obj_get_child(file_list_container, current_file_index);
+        lv_obj_set_style_bg_opa(old_item, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_text_color(old_item, lv_color_hex(0xB3B3B3), 0);
+
+        current_file_index = safe_modulo(current_file_index + 1, total_files_found);
+
+        lv_obj_t *new_item = lv_obj_get_child(file_list_container, current_file_index);
+        lv_obj_set_style_bg_color(new_item, lv_color_hex(0x9D4EDD), 0);
+        lv_obj_set_style_bg_opa(new_item, LV_OPA_COVER, 0);
+        lv_obj_set_style_text_color(new_item, lv_color_hex(0xFFFFFF), 0);
+
+        lv_obj_scroll_to_view(new_item, LV_ANIM_OFF);
+    }
+
+    if (flag3) {
+        flag3 = false;
+        
+        
+        lv_obj_t *old_item = lv_obj_get_child(file_list_container, current_file_index);
+        lv_obj_set_style_bg_opa(old_item, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_text_color(old_item, lv_color_hex(0xB3B3B3), 0);
+
+        
+        current_file_index = safe_modulo(current_file_index - 1, total_files_found);
+
+        
+        lv_obj_t *new_item = lv_obj_get_child(file_list_container, current_file_index);
+        lv_obj_set_style_bg_color(new_item, lv_color_hex(0x9D4EDD), 0);
+        lv_obj_set_style_bg_opa(new_item, LV_OPA_COVER, 0);
+        lv_obj_set_style_text_color(new_item, lv_color_hex(0xFFFFFF), 0);
+
+        
+        lv_obj_scroll_to_view(new_item, LV_ANIM_OFF);
+    }
+    if (flag1_long) {
+        flag1_long = false;
+        flag1 = false; 
+        
+        lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+        current_screen = SCREEN_HOME;
+        current_option_for_home_screen = RECORD_BUTTON;
+        initial_focus(); 
+    }
+
+    if (flag1) {
+        flag1 = false;
+        
+        lv_scr_load_anim(playback_screen(current_file_index), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+        current_option_for_playback_screen = PLAY_PAUSE_BUTTON;
+        ui_set_opt_active(opt1, current_option_for_playback_screen == PLAY_PAUSE_BUTTON);
+        ui_set_opt_active(opt2, current_option_for_playback_screen == STOP_BACK_BUTTON);
+        
+        current_screen = SCREEN_PLAYBACK;
+    }
+}
+
 void home_screen_logic(void){
-            if (flag2) {
-                    flag2 = false; 
-                    change_focus(current_screen, 1);
-            }
+    if (flag2) {
+        flag2 = false; 
+        change_focus(current_screen, 1);
+    }
 
-            if (flag3) {
-                    flag3 = false;
-                    change_focus(current_screen, -1);
-            }
+    if (flag3) {
+        flag3 = false;
+        change_focus(current_screen, -1);
+    }
 
-                if (flag1) {
-                    flag1 = false;
-                    if (current_option_for_home_screen == RECORD_BUTTON) {
-                    lv_scr_load_anim(record_options_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-                    current_option_for_intermediate_screen = START_RECORDING_BUTTON;
-                    ui_set_opt_active(opt1, current_option_for_intermediate_screen == START_RECORDING_BUTTON);
-                    current_screen = SCREEN_RECORD_OPTIONS;
-                } else if (current_option_for_home_screen == STOP_BUTTON) {
-                    lv_obj_clean(lv_scr_act());
-                    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x0), 0);
-                    current_screen = SCREEN_SLEEP_MODE;
-                }
-            }
+    if (flag1) {
+        flag1 = false;
+        if (current_option_for_home_screen == RECORD_BUTTON) {
+        lv_scr_load_anim(record_options_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+        current_option_for_intermediate_screen = START_RECORDING_BUTTON;
+        ui_set_opt_active(opt1, current_option_for_intermediate_screen == START_RECORDING_BUTTON);
+        current_screen = SCREEN_RECORD_OPTIONS;
+        }
+        else if (current_option_for_home_screen == LISTEN_BUTTON){
+            current_file_index = 0;
+            lv_scr_load_anim(listen_menu_screen(), LV_SCR_LOAD_ANIM_NONE, 300, 0, true);
+            current_screen = SCREEN_LISTEN_MENU;
+        }
+                 
+        else if (current_option_for_home_screen == STOP_BUTTON) {
+            lv_obj_clean(lv_scr_act());
+            lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x0), 0);
+            current_screen = SCREEN_SLEEP_MODE;
+        }
+    }
 }
 
 void intermediate_screen_logic(void){
-        if (flag2) {
-                flag2 = false;
-                change_focus(current_screen, 1);
-            }
+    if (flag2) {
+        flag2 = false;
+        change_focus(current_screen, 1);
+    }
 
-            if (flag3) {
-                flag3 = false;
-                change_focus(current_screen, -1);
-            }
+    if (flag3) {
+        flag3 = false;
+        change_focus(current_screen, -1);
+    }
 
-            if (flag1) {
-                flag1 = false;
-                if (current_option_for_intermediate_screen == START_RECORDING_BUTTON) {
-                    lv_obj_clean(lv_scr_act());
-                    lv_scr_load_anim(record_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-                    current_option_for_record_screen = PAUSE_RECORD_BUTTON;
-                    ui_set_opt_active(opt1, current_option_for_record_screen == SAVE_RECORD_BUTTON);
-                    ui_set_opt_active(opt2, current_option_for_record_screen == PAUSE_RECORD_BUTTON);
-                    current_screen = SCREEN_RECORD;
-                } else if (current_option_for_intermediate_screen == BACK_RECORDING_BUTTON) {
-                    lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-                    current_screen = SCREEN_HOME;
-                    current_option_for_home_screen = RECORD_BUTTON;
-                    ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
-                }
+    if (flag1) {
+        flag1 = false;
+        if (current_option_for_intermediate_screen == START_RECORDING_BUTTON) {
+            lv_scr_load_anim(record_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+            current_option_for_record_screen = PAUSE_RECORD_BUTTON;
+            ui_set_opt_active(opt1, current_option_for_record_screen == SAVE_RECORD_BUTTON);
+            ui_set_opt_active(opt2, current_option_for_record_screen == PAUSE_RECORD_BUTTON);
+            current_screen = SCREEN_RECORD;
+        } else if (current_option_for_intermediate_screen == BACK_RECORDING_BUTTON) {
+            lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+            current_screen = SCREEN_HOME;
+            current_option_for_home_screen = RECORD_BUTTON;
+            ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
+        }
             
-            }
+    }
 }
 
 void record_screen_logic(){
-                          
-                if (flag2) {
-                    flag2 = false;
-                    change_focus(current_screen, 1);
+    if (flag2) {
+        flag2 = false;
+        change_focus(current_screen, 1);
+    }
 
-                }
+    if (flag3) {
+        flag3 = false;
+        change_focus(current_screen, -1);
+    }
 
-                if (flag3) {
-                    flag3 = false;
-                    change_focus(current_screen, -1);
-                }
-
-                static bool paused = false;
-            
-                if (flag1) {
-                    flag1 = false;
-                    if (current_option_for_record_screen == SAVE_RECORD_BUTTON) {
-                        if (record_timer) {
-                            lv_timer_del(record_timer);
-                            record_timer = NULL;
-                        }
-                        lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-                        current_screen = SCREEN_HOME;
-                        current_option_for_home_screen = RECORD_BUTTON;
-                        ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
-                        paused = false;
-                    } else if (current_option_for_record_screen == PAUSE_RECORD_BUTTON) {
-                        paused = !paused;
-                        if (paused) {
-                            lv_label_set_text(opt2, LV_SYMBOL_PLAY);
-                            lv_timer_pause(record_timer);
-                        } else {
-                            lv_label_set_text(opt2, LV_SYMBOL_PAUSE);
-                            lv_timer_resume(record_timer);
-                        }
-                    }
-                }
+    static bool paused = false;
+    if (flag1) {
+        flag1 = false;
+        if (current_option_for_record_screen == SAVE_RECORD_BUTTON) {
+        if (record_timer) {
+            lv_timer_del(record_timer);
+            record_timer = NULL;
+        }
+        lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+        current_screen = SCREEN_HOME;
+        current_option_for_home_screen = RECORD_BUTTON;
+        ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
+        paused = false;
+        } else if (current_option_for_record_screen == PAUSE_RECORD_BUTTON) {
+            paused = !paused;
+            if (paused) {
+                lv_label_set_text(opt2, LV_SYMBOL_PLAY);
+                lv_timer_pause(record_timer);
+            } else {
+                lv_label_set_text(opt2, LV_SYMBOL_PAUSE);
+                lv_timer_resume(record_timer);
+            }
+        }
+    }
 }
-static void initial_focus(){
-    ui_set_opt_active(opt1, true);
-    ui_set_opt_active(opt2, false);
-    ui_set_opt_active(opt3, false);
+
+void playback_logic(void){
+    if (flag2) {
+        flag2 = false;
+        current_option_for_playback_screen = safe_modulo(current_option_for_playback_screen + 1, 2);
+        ui_set_opt_active(opt1, current_option_for_playback_screen == PLAY_PAUSE_BUTTON);
+        ui_set_opt_active(opt2, current_option_for_playback_screen == STOP_BACK_BUTTON);
+    }
+
+    if (flag3) {
+        flag3 = false;
+        current_option_for_playback_screen = safe_modulo(current_option_for_playback_screen - 1, 2);
+        ui_set_opt_active(opt1, current_option_for_playback_screen == PLAY_PAUSE_BUTTON);
+        ui_set_opt_active(opt2, current_option_for_playback_screen == STOP_BACK_BUTTON);
+    }
+
+    static bool is_playing = true;
+
+    if(flag1){
+        flag1 = false;
+        if(current_option_for_playback_screen == PLAY_PAUSE_BUTTON){
+            is_playing = !is_playing;
+            if(is_playing){
+                lv_label_set_text(opt1, LV_SYMBOL_PAUSE);
+                lv_timer_resume(playback_timer);
+            }else{
+                lv_label_set_text(opt1, LV_SYMBOL_PLAY);
+                lv_timer_pause(playback_timer);
+            }
+        }else if (current_option_for_playback_screen == STOP_BACK_BUTTON){
+            if(playback_timer){
+                lv_timer_del(playback_timer);
+                playback_timer = NULL;
+            }
+
+            lv_scr_load_anim(listen_menu_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+            current_screen = SCREEN_LISTEN_MENU;
+            is_playing =true;
+        }
+        
+
+    }
+
 }
 void sleep_screen_logic(void){
      if (flag2 || flag3) {
-                    flag2 = false;
-                    flag3 = false;
-                    // Dacă oricare buton de direcție este apăsat, ieșim din Sleep
-                    lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-                    current_screen = SCREEN_HOME;
-                    current_option_for_home_screen = RECORD_BUTTON;
-            }
-                // Curățăm preventiv și butonul de select ca să nu facă acțiuni neașteptate la trezire
-                flag1 = false; 
+        flag2 = false;
+        flag3 = false;
+        lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+        current_screen = SCREEN_HOME;
+        current_option_for_home_screen = RECORD_BUTTON;
+    }
+                
+        flag1 = false; 
 }
 
 void ui_init(void){
@@ -440,7 +593,7 @@ void ui_init(void){
     init_button(down_button);
     init_button(up_button);
 
-    gpio_set_irq_enabled_with_callback(BUTON1, GPIO_IRQ_EDGE_FALL, true, &gpio_callback);
+    gpio_set_irq_enabled_with_callback(BUTON1, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &gpio_callback);
     gpio_set_irq_enabled(BUTON2, GPIO_IRQ_EDGE_FALL, true);
     gpio_set_irq_enabled(BUTON3, GPIO_IRQ_EDGE_FALL, true);
 
