@@ -4,7 +4,8 @@
 #include <stdio.h>
 #include "buttons.h"
 #include "display_port.h"
-
+#include "ff.h"
+#include "sd_card.h"
 
 #define MAX_FILES_TO_DISPLAY 10
 
@@ -20,6 +21,9 @@ static int32_t top_num;
 static int32_t bottom_num;
 static bool update_scroll_running = false;
 
+
+char wav_files[MAX_FILES_TO_DISPLAY][32]; 
+FATFS sd_fs; // Obiectul de sistem de fișiere
 
 volatile home_menu_options current_option_for_home_screen = RECORD_BUTTON;
 volatile intermediate_record_screen_options current_option_for_intermediate_screen = START_RECORDING_BUTTON;
@@ -296,19 +300,30 @@ static lv_obj_t* listen_menu_screen(){
     lv_obj_set_flex_flow(file_list_container, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_style_pad_all(file_list_container, 5, 0);
 
-    total_files_found = 8;
+    scan_sd_for_wavs();
+
+    if (total_files_found == 0) {
+        lv_obj_t* empty_label = lv_label_create(file_list_container);
+        lv_label_set_text(empty_label, "Niciun fisier .WAV gasit.");
+        lv_obj_set_style_text_color(empty_label, lv_color_hex(0xFF0000), 0); // Rosu
+        lv_obj_set_style_pad_all(empty_label, 10, 0);
+        return listen_scr;
+    }
 
     for(int i = 0; i < total_files_found; ++i){
-        char filename[20];
-        sprintf(filename, " REC_%03d.WAV", i + 1);
-
         lv_obj_t* item = lv_label_create(file_list_container);
-        lv_label_set_text(item, filename);
+        
+        
+        char display_name[40];
+        sprintf(display_name, " %s", wav_files[i]); 
+        lv_label_set_text(item, display_name);
+
         lv_obj_set_style_text_font(item, &lv_font_montserrat_20, 0);
         lv_obj_set_style_pad_all(item, 10, 0);
         lv_obj_set_width(item, lv_pct(100));
 
-        if(i == 0) {
+        // Focusul rămâne pe elementul selectat (sau pe 0 dacă abia am intrat)
+        if(i == current_file_index) {
             lv_obj_set_style_bg_color(item, lv_color_hex(0x9D4EDD), 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
             lv_obj_set_style_text_color(item, lv_color_hex(0xFFFFFF), 0);
@@ -316,7 +331,6 @@ static lv_obj_t* listen_menu_screen(){
             lv_obj_set_style_bg_opa(item, LV_OPA_TRANSP, 0);
             lv_obj_set_style_text_color(item, lv_color_hex(0xB3B3B3), 0);
         }
-
     }
 
     return listen_scr;
@@ -361,6 +375,44 @@ static lv_obj_t *playback_screen(int file_index){
 
     
     return play_scr;
+}
+
+static void scan_sd_for_wavs(void){
+    DIR dir;
+    FILINFO fno;
+    FRESULT res;
+
+    total_files_found = 0;
+
+    res = f_mount(&sd_fs, "0:", 1);
+    if(res != FR_OK){
+        printf("Eroare FatFs: Nu am putut monta cardul SD! (Cod: %d)\n", res);
+        return;
+    }
+
+    res = f_opendir(&dir, "0:/");
+    if(res == FR_OK){
+        while (total_files_found < MAX_FILES_TO_DISPLAY){
+            res = f_readdir(&dir, &fno);
+
+            if(res != FR_OK || fno.fname[0] == NULL){
+                break;
+            }
+
+            if(!(fno.fattrib & AM_DIR)){
+                int len = strlen(fno.fname);
+                if (len > 4 && (strcmp(&fno.fname[len - 4], ".WAV") == 0 || strcmp(&fno.fname[len - 4], ".wav") == 0)){
+
+                    strcpy(wav_files[total_files_found], fno.fname);
+                    total_files_found++;
+                }
+            }
+        }
+        f_closedir(&dir);
+        
+    }else{
+        printf("Eroare FatFs: Nu am putut deschide directorul principal!\n");
+    }
 }
 
 void listen_menu_logic(void){
@@ -583,6 +635,7 @@ void sleep_screen_logic(void){
 
 void ui_init(void){
     stdio_init_all();
+    sd_init_driver();
     display_port_init();
 
     lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
