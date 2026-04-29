@@ -5,10 +5,9 @@
 #include <string.h>
 #include "buttons.h"
 #include "display_port.h"
-#include "ff.h"
-#include "sd_card.h"
+#include "sd.h"
 
-#define MAX_FILES_TO_DISPLAY 10
+
 
 // Păstrăm un pointer către opt1, opt2 si opt3 ca să o putem modifica mai târziu din exterior
 lv_obj_t *opt1;
@@ -21,9 +20,6 @@ static int32_t top_num;
 static int32_t bottom_num;
 static bool update_scroll_running = false;
 
-
-char wav_files[MAX_FILES_TO_DISPLAY][32]; 
-FATFS sd_fs; // Obiectul de sistem de fișiere
 
 volatile home_menu_options current_option_for_home_screen = RECORD_BUTTON;
 volatile intermediate_record_screen_options current_option_for_intermediate_screen = START_RECORDING_BUTTON;
@@ -60,44 +56,6 @@ static lv_obj_t* create_rectangle(lv_obj_t* parent, uint8_t width, uint8_t heigh
 
     return new_rectangle;
 
-}
-
-static void scan_sd_for_wavs(void){
-    DIR dir;
-    FILINFO fno;
-    FRESULT res;
-
-    total_files_found = 0;
-
-    res = f_mount(&sd_fs, "0:", 1);
-    if(res != FR_OK){
-        printf("Eroare FatFs: Nu am putut monta cardul SD! (Cod: %d)\n", res);
-        return;
-    }
-
-    res = f_opendir(&dir, "/");
-    if(res == FR_OK){
-        while (total_files_found < MAX_FILES_TO_DISPLAY){
-            res = f_readdir(&dir, &fno);
-
-            if(res != FR_OK || fno.fname[0] == 0){
-                break;
-            }
-
-            if(!(fno.fattrib & AM_DIR)){
-                int len = strlen(fno.fname);
-                if (len > 4 && (strcmp(&fno.fname[len - 4], ".WAV") == 0 || strcmp(&fno.fname[len - 4], ".wav") == 0)){
-
-                    strcpy(wav_files[total_files_found], fno.fname);
-                    total_files_found++;
-                }
-            }
-        }
-        f_closedir(&dir);
-        
-    }else{
-        printf("Eroare FatFs: Nu am putut deschide directorul principal!\n");
-    }
 }
 
 

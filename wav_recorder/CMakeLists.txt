@@ -47,6 +47,7 @@ add_executable(wav_recorder
     display_port.c
     ui.c
     hw_config.c
+    sd.c
     )
 
 
