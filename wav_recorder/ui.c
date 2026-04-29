@@ -60,6 +60,45 @@ static lv_obj_t* create_rectangle(lv_obj_t* parent, uint8_t width, uint8_t heigh
 
 }
 
+static void scan_sd_for_wavs(void){
+    DIR dir;
+    FILINFO fno;
+    FRESULT res;
+
+    total_files_found = 0;
+
+    res = f_mount(&sd_fs, "0:", 1);
+    if(res != FR_OK){
+        printf("Eroare FatFs: Nu am putut monta cardul SD! (Cod: %d)\n", res);
+        return;
+    }
+
+    res = f_opendir(&dir, "/");
+    if(res == FR_OK){
+        while (total_files_found < MAX_FILES_TO_DISPLAY){
+            res = f_readdir(&dir, &fno);
+
+            if(res != FR_OK || fno.fname[0] == 0){
+                break;
+            }
+
+            if(!(fno.fattrib & AM_DIR)){
+                int len = strlen(fno.fname);
+                if (len > 4 && (strcmp(&fno.fname[len - 4], ".WAV") == 0 || strcmp(&fno.fname[len - 4], ".wav") == 0)){
+
+                    strcpy(wav_files[total_files_found], fno.fname);
+                    total_files_found++;
+                }
+            }
+        }
+        f_closedir(&dir);
+        
+    }else{
+        printf("Eroare FatFs: Nu am putut deschide directorul principal!\n");
+    }
+}
+
+
 static lv_obj_t* create_progress_bar(lv_obj_t* parent, uint8_t width, uint8_t height,lv_align_t align,uint8_t x_ofs, uint8_t y_ofs,  bool is_animated){
     lv_obj_t * new_bar = lv_bar_create(parent);
 
@@ -377,43 +416,6 @@ static lv_obj_t *playback_screen(int file_index){
     return play_scr;
 }
 
-static void scan_sd_for_wavs(void){
-    DIR dir;
-    FILINFO fno;
-    FRESULT res;
-
-    total_files_found = 0;
-
-    res = f_mount(&sd_fs, "0:", 1);
-    if(res != FR_OK){
-        printf("Eroare FatFs: Nu am putut monta cardul SD! (Cod: %d)\n", res);
-        return;
-    }
-
-    res = f_opendir(&dir, "0:/");
-    if(res == FR_OK){
-        while (total_files_found < MAX_FILES_TO_DISPLAY){
-            res = f_readdir(&dir, &fno);
-
-            if(res != FR_OK || fno.fname[0] == NULL){
-                break;
-            }
-
-            if(!(fno.fattrib & AM_DIR)){
-                int len = strlen(fno.fname);
-                if (len > 4 && (strcmp(&fno.fname[len - 4], ".WAV") == 0 || strcmp(&fno.fname[len - 4], ".wav") == 0)){
-
-                    strcpy(wav_files[total_files_found], fno.fname);
-                    total_files_found++;
-                }
-            }
-        }
-        f_closedir(&dir);
-        
-    }else{
-        printf("Eroare FatFs: Nu am putut deschide directorul principal!\n");
-    }
-}
 
 void listen_menu_logic(void){
     if(total_files_found == 0){
