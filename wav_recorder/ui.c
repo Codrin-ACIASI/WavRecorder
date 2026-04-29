@@ -2,13 +2,13 @@
 #include "lvgl.h"
 #include "pico/stdlib.h"
 #include <stdio.h>
+#include <string.h>
 #include "buttons.h"
 #include "display_port.h"
 #include "ff.h"
 #include "sd_card.h"
 
 #define MAX_FILES_TO_DISPLAY 10
-
 
 // Păstrăm un pointer către opt1, opt2 si opt3 ca să o putem modifica mai târziu din exterior
 lv_obj_t *opt1;
@@ -33,7 +33,7 @@ volatile playback_options current_option_for_playback_screen = PLAY_PAUSE_BUTTON
 
 volatile int current_file_index = 0;
 volatile int total_files_found = 0;
-lv_obj_t *file_list_container =  NULL;
+lv_obj_t *file_list_container = NULL;
 
 typedef struct {
     lv_obj_t *label;
@@ -42,6 +42,8 @@ typedef struct {
 
 lv_timer_t *record_timer = NULL;
 lv_timer_t *playback_timer = NULL;
+
+
 
 static inline int safe_modulo(int val, int max_val) {
     return ((val % max_val) + max_val) % max_val;
@@ -417,6 +419,7 @@ static lv_obj_t *playback_screen(int file_index){
 }
 
 
+
 void listen_menu_logic(void){
     if(total_files_found == 0){
         return;
@@ -638,6 +641,10 @@ void sleep_screen_logic(void){
 void ui_init(void){
     stdio_init_all();
     sd_init_driver();
+    
+    sleep_ms(200);
+    f_mount(&sd_fs, "0:", 1);
+
     display_port_init();
 
     lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);
@@ -654,4 +661,3 @@ void ui_init(void){
 
     initial_focus();
 }
-

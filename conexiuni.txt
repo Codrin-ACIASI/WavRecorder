@@ -1,0 +1,36 @@
+1. ILI9341 (Display SPI)
+
+GND → GND
+VCC → 5V
+CLK → SPI clock (GPIO 18)
+MOSI → SPI MOSI (GPIO 19)
+MISO → SPI MISO (GPIO 16, dacă ai nevoie de read)
+RES → GPIO 17
+DC → GPIO 21
+
+2. Butoane
+
+Buton1 → GP20
+Buton2 → GP22
+Buton3 → GP26
+Buton4 → GP27
+
+3. Microfon
+
+VCC → 5V
+GND → GND
+OUT → GP28
+
+4. Amplificator (I2S)
+
+DIN → GPIO13
+BCLK → GPIO14
+LRCLK → GPIO15
+
+5. MicroSD
+VCC → 3.3V 
+GND → GND
+SCK / CLK → GPIO2 
+MOSI → GPIO3 
+MISO → GPIO4 
+CS (Chip Select) → GPIO5
