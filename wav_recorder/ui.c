@@ -6,10 +6,8 @@
 #include "buttons.h"
 #include "display_port.h"
 #include "sd.h"
+#include "audio_player.h" // <-- Includerea modulului audio
 
-
-
-// Păstrăm un pointer către opt1, opt2 si opt3 ca să o putem modifica mai târziu din exterior
 lv_obj_t *opt1;
 lv_obj_t *opt2;
 lv_obj_t *opt3;
@@ -20,7 +18,6 @@ static int32_t top_num;
 static int32_t bottom_num;
 static bool update_scroll_running = false;
 
-
 volatile home_menu_options current_option_for_home_screen = RECORD_BUTTON;
 volatile intermediate_record_screen_options current_option_for_intermediate_screen = START_RECORDING_BUTTON;
 volatile record_options current_option_for_record_screen = PAUSE_RECORD_BUTTON;
@@ -28,7 +25,6 @@ volatile app_screen_t current_screen = SCREEN_HOME;
 volatile playback_options current_option_for_playback_screen = PLAY_PAUSE_BUTTON;
 
 volatile int current_file_index = 0;
-volatile int total_files_found = 0;
 lv_obj_t *file_list_container = NULL;
 
 typedef struct {
@@ -39,8 +35,6 @@ typedef struct {
 lv_timer_t *record_timer = NULL;
 lv_timer_t *playback_timer = NULL;
 
-
-
 static inline int safe_modulo(int val, int max_val) {
     return ((val % max_val) + max_val) % max_val;
 }
@@ -49,23 +43,17 @@ static lv_obj_t* create_rectangle(lv_obj_t* parent, uint8_t width, uint8_t heigh
     lv_obj_t* new_rectangle = lv_obj_create(parent);
     
     lv_obj_set_size(new_rectangle, width, height);
-
     lv_obj_align(new_rectangle, align, x_ofs, y_ofs);
-
     lv_obj_set_style_bg_color(new_rectangle, lv_color_hex(color), 0);
 
     return new_rectangle;
-
 }
-
 
 static lv_obj_t* create_progress_bar(lv_obj_t* parent, uint8_t width, uint8_t height,lv_align_t align,uint8_t x_ofs, uint8_t y_ofs,  bool is_animated){
     lv_obj_t * new_bar = lv_bar_create(parent);
 
     lv_obj_set_size(new_bar, width, height);
-
     lv_obj_center(new_bar);
-
     lv_obj_align(new_bar, align, x_ofs, y_ofs);
 
     if(is_animated)
@@ -119,7 +107,6 @@ static void ui_set_opt_active(lv_obj_t *opt, bool is_active) {
 
     } else {
         lv_obj_set_style_bg_opa(opt, LV_OPA_TRANSP, 0);
-
         lv_obj_set_style_text_color(opt, lv_color_hex(0xB3B3B3), 0);
     }
 
@@ -138,8 +125,6 @@ static void initial_focus(){
     ui_set_opt_active(opt2, false);
     ui_set_opt_active(opt3, false);
 }
-
-
 
 static void change_focus(app_screen_t current_screen, int8_t direction ){
     switch (current_screen)
@@ -197,12 +182,9 @@ static lv_obj_t *record_options_screen(void)
 
     opt1 = create_label(record_options_scr, "1. Inregistreaza", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 0);
     opt2 = create_label(record_options_scr, "2. Inapoi la pagina\nprincipala", &lv_font_montserrat_20, 0xB3B3B3, LV_ALIGN_CENTER, 0, 50);
-    
 
     return record_options_scr;
-
 }
-
 
 static void start_symbol(void)
 {
@@ -234,7 +216,6 @@ static void update_timer_cb(lv_timer_t *t)
     lv_label_set_text(data->label, buf);
 }
 
-
 static lv_obj_t *record_screen(void)
 {
     lv_obj_t *timer_label;
@@ -243,7 +224,6 @@ static lv_obj_t *record_screen(void)
 
     lv_obj_t *record_scr = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(record_scr, lv_color_hex(0x121212), 0);
-
 
     rec_label = lv_label_create(record_scr);
     lv_label_set_text(rec_label, "REC");
@@ -281,14 +261,12 @@ static lv_obj_t *record_screen(void)
     return record_scr;
 }
 
-
 static lv_obj_t* listen_menu_screen(){
     lv_obj_t *listen_scr= lv_obj_create(NULL);
     lv_obj_set_style_bg_color(listen_scr, lv_color_hex(0x121212), 0);
 
     lv_obj_t *header = create_rectangle(listen_scr, 240, 40, LV_ALIGN_TOP_MID, 0, 0, 0x9D4EDD);
     create_label(header, "Fisiere .WAV", &lv_font_montserrat_20, 0xFFFFFF, LV_ALIGN_CENTER, 0, 0);
-
 
     file_list_container = lv_obj_create(listen_scr);
     lv_obj_set_size(file_list_container, 240, 280);
@@ -304,14 +282,13 @@ static lv_obj_t* listen_menu_screen(){
     if (total_files_found == 0) {
         lv_obj_t* empty_label = lv_label_create(file_list_container);
         lv_label_set_text(empty_label, "Niciun fisier .WAV gasit.");
-        lv_obj_set_style_text_color(empty_label, lv_color_hex(0xFF0000), 0); // Rosu
+        lv_obj_set_style_text_color(empty_label, lv_color_hex(0xFF0000), 0); 
         lv_obj_set_style_pad_all(empty_label, 10, 0);
         return listen_scr;
     }
 
     for(int i = 0; i < total_files_found; ++i){
         lv_obj_t* item = lv_label_create(file_list_container);
-        
         
         char display_name[40];
         sprintf(display_name, " %s", wav_files[i]); 
@@ -321,7 +298,6 @@ static lv_obj_t* listen_menu_screen(){
         lv_obj_set_style_pad_all(item, 10, 0);
         lv_obj_set_width(item, lv_pct(100));
 
-        // Focusul rămâne pe elementul selectat (sau pe 0 dacă abia am intrat)
         if(i == current_file_index) {
             lv_obj_set_style_bg_color(item, lv_color_hex(0x9D4EDD), 0);
             lv_obj_set_style_bg_opa(item, LV_OPA_COVER, 0);
@@ -333,7 +309,6 @@ static lv_obj_t* listen_menu_screen(){
     }
 
     return listen_scr;
-
 }
 
 static lv_obj_t *playback_screen(int file_index){
@@ -344,8 +319,9 @@ static lv_obj_t *playback_screen(int file_index){
     lv_obj_t *play_scr = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(play_scr, lv_color_hex(0x121212), 0);
 
-    char filename[20];
-    sprintf(filename, "REC_%03d.WAV", file_index + 1);
+    char filename[40];
+    // Afisam direct numele real al fisierului
+    sprintf(filename, "%s", wav_files[file_index]);
 
     filename_label = lv_label_create(play_scr);
     lv_label_set_text(filename_label, filename);
@@ -362,7 +338,6 @@ static lv_obj_t *playback_screen(int file_index){
     lv_obj_align(timer_label, LV_ALIGN_CENTER, 0, 0);
     lv_obj_set_style_text_color(timer_label, lv_color_hex(0xFFFFFF), 0);
 
-
     timer_data_t *data = lv_mem_alloc(sizeof(timer_data_t));
     data->label = timer_label;
     data->start_time = to_ms_since_boot(get_absolute_time());
@@ -370,13 +345,10 @@ static lv_obj_t *playback_screen(int file_index){
     playback_timer = lv_timer_create(update_timer_cb, 200, data);
 
     opt1 = create_label(play_scr, LV_SYMBOL_PAUSE, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, -40, -20); 
-    opt2 = create_label(play_scr, LV_SYMBOL_STOP, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, 40, -20);  
-
+    opt2 = create_label(play_scr, LV_SYMBOL_LEFT, &lv_font_montserrat_32, 0xFFFFFF, LV_ALIGN_BOTTOM_MID, 40, -20);  
     
     return play_scr;
 }
-
-
 
 void listen_menu_logic(void){
     if(total_files_found == 0){
@@ -403,23 +375,20 @@ void listen_menu_logic(void){
     if (flag3) {
         flag3 = false;
         
-        
         lv_obj_t *old_item = lv_obj_get_child(file_list_container, current_file_index);
         lv_obj_set_style_bg_opa(old_item, LV_OPA_TRANSP, 0);
         lv_obj_set_style_text_color(old_item, lv_color_hex(0xB3B3B3), 0);
 
-        
         current_file_index = safe_modulo(current_file_index - 1, total_files_found);
 
-        
         lv_obj_t *new_item = lv_obj_get_child(file_list_container, current_file_index);
         lv_obj_set_style_bg_color(new_item, lv_color_hex(0x9D4EDD), 0);
         lv_obj_set_style_bg_opa(new_item, LV_OPA_COVER, 0);
         lv_obj_set_style_text_color(new_item, lv_color_hex(0xFFFFFF), 0);
 
-        
         lv_obj_scroll_to_view(new_item, LV_ANIM_OFF);
     }
+    
     if (flag1_long) {
         flag1_long = false;
         flag1 = false; 
@@ -439,6 +408,11 @@ void listen_menu_logic(void){
         ui_set_opt_active(opt2, current_option_for_playback_screen == STOP_BACK_BUTTON);
         
         current_screen = SCREEN_PLAYBACK;
+
+        // --- PORNIM REDAREA AUDIO AICI ---
+        char full_path[40];
+        sprintf(full_path, "0:/%s", wav_files[current_file_index]); // Construim calea corectă către SD
+        audio_player_play(full_path);
     }
 }
 
@@ -456,10 +430,10 @@ void home_screen_logic(void){
     if (flag1) {
         flag1 = false;
         if (current_option_for_home_screen == RECORD_BUTTON) {
-        lv_scr_load_anim(record_options_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-        current_option_for_intermediate_screen = START_RECORDING_BUTTON;
-        ui_set_opt_active(opt1, current_option_for_intermediate_screen == START_RECORDING_BUTTON);
-        current_screen = SCREEN_RECORD_OPTIONS;
+            lv_scr_load_anim(record_options_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+            current_option_for_intermediate_screen = START_RECORDING_BUTTON;
+            ui_set_opt_active(opt1, current_option_for_intermediate_screen == START_RECORDING_BUTTON);
+            current_screen = SCREEN_RECORD_OPTIONS;
         }
         else if (current_option_for_home_screen == LISTEN_BUTTON){
             current_file_index = 0;
@@ -500,7 +474,6 @@ void intermediate_screen_logic(void){
             current_option_for_home_screen = RECORD_BUTTON;
             ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
         }
-            
     }
 }
 
@@ -519,15 +492,15 @@ void record_screen_logic(){
     if (flag1) {
         flag1 = false;
         if (current_option_for_record_screen == SAVE_RECORD_BUTTON) {
-        if (record_timer) {
-            lv_timer_del(record_timer);
-            record_timer = NULL;
-        }
-        lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-        current_screen = SCREEN_HOME;
-        current_option_for_home_screen = RECORD_BUTTON;
-        ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
-        paused = false;
+            if (record_timer) {
+                lv_timer_del(record_timer);
+                record_timer = NULL;
+            }
+            lv_scr_load_anim(home_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+            current_screen = SCREEN_HOME;
+            current_option_for_home_screen = RECORD_BUTTON;
+            ui_set_opt_active(opt1, current_option_for_home_screen == RECORD_BUTTON);
+            paused = false;
         } else if (current_option_for_record_screen == PAUSE_RECORD_BUTTON) {
             paused = !paused;
             if (paused) {
@@ -565,25 +538,27 @@ void playback_logic(void){
             if(is_playing){
                 lv_label_set_text(opt1, LV_SYMBOL_PAUSE);
                 lv_timer_resume(playback_timer);
+                audio_player_resume(); // --- Reluăm audio
             }else{
                 lv_label_set_text(opt1, LV_SYMBOL_PLAY);
                 lv_timer_pause(playback_timer);
+                audio_player_pause(); // --- Punem pe pauză audio
             }
         }else if (current_option_for_playback_screen == STOP_BACK_BUTTON){
             if(playback_timer){
                 lv_timer_del(playback_timer);
                 playback_timer = NULL;
             }
+            
+            audio_player_stop(); // --- Oprim audio-ul definitiv când ieșim
 
             lv_scr_load_anim(listen_menu_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
             current_screen = SCREEN_LISTEN_MENU;
-            is_playing =true;
+            is_playing = true;
         }
-        
-
     }
-
 }
+
 void sleep_screen_logic(void){
      if (flag2 || flag3) {
         flag2 = false;
@@ -593,15 +568,13 @@ void sleep_screen_logic(void){
         current_option_for_home_screen = RECORD_BUTTON;
     }
                 
-        flag1 = false; 
+    flag1 = false; 
 }
 
 void ui_init(void){
     stdio_init_all();
-    sd_init_driver();
-    
-    sleep_ms(200);
-    f_mount(&sd_fs, "0:", 1);
+    init_sd_card();
+    audio_player_init(); // --- Inițializăm driverul I2S / DMA pentru redare
 
     display_port_init();
 

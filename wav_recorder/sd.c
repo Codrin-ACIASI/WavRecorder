@@ -1,11 +1,23 @@
 #include "sd.h"
 #include "ff.h"
 #include "sd_card.h"
-#include<string.h>
+#include <string.h>
+#include <stdio.h>
+#include "pico/stdlib.h" 
 
 char wav_files[MAX_FILES_TO_DISPLAY][32]; 
-FATFS sd_fs; // Obiectul de sistem de fișiere
+FATFS sd_fs; 
+volatile int total_files_found = 0;
 
+void init_sd_card(void) {
+    sd_init_driver();
+    sleep_ms(200);
+    
+    FRESULT res = f_mount(&sd_fs, "0:", 1);
+    if(res != FR_OK) {
+        printf("Eroare FatFs: Nu am putut monta cardul SD la initializare! (Cod: %d)\n", res);
+    }
+}
 
 void scan_sd_for_wavs(void){
     DIR dir;

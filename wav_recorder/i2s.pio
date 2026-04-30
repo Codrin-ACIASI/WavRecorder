@@ -1,0 +1,15 @@
+.program i2s
+.side_set 2
+
+public entry_point:
+    set x, 14       side 0b01
+bitloop1:
+    out pins, 1     side 0b00 [2]
+    jmp x-- bitloop1 side 0b01 [2]
+    out pins, 1     side 0b10 [2]
+    set x, 14       side 0b11 [2]
+bitloop0:
+    out pins, 1     side 0b10 [2]
+    jmp x-- bitloop0 side 0b11 [2]
+    out pins, 1     side 0b00 [2]
+    jmp entry_point side 0b01 [2]

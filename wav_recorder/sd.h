@@ -9,7 +9,8 @@
 
 extern volatile int total_files_found;
 extern char wav_files[MAX_FILES_TO_DISPLAY][32]; 
-extern FATFS sd_fs; // Obiectul de sistem de fișiere
+
+void init_sd_card(void);
 void scan_sd_for_wavs(void);
 
 
