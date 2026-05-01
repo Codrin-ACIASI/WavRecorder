@@ -128,5 +128,5 @@ Interfața utilizator include:
 - ADC – pentru citirea potențiometrului și microfonului analogic
 - GPIO – pentru butoane
 
----![circuit_schematic](https://github.tuiasi.ro/user-attachments/assets/1a0e954f-d35e-4b13-be53-84bdfb8e4563)
+---![circuit_schematic](pictures/circuit_schematic.jpeg)
 
