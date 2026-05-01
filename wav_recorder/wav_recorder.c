@@ -5,7 +5,7 @@
 #include "ui.h"
 #include "buttons.h"
 #include "hardware/spi.h"
-#include "audio_player.h" // <-- ADĂUGAT: Header-ul sistemului audio
+#include "audio_player.h"
 
 extern lv_timer_t *record_timer;
 
@@ -15,14 +15,19 @@ int main() {
 
     printf("--- Intrare in bucla principala LVGL ---\n");
 
+    uint32_t last_tick = to_ms_since_boot(get_absolute_time());
+
     while (true) {
         audio_task();
-        // Task-urile LVGL
-        lv_timer_handler();
-        lv_tick_inc(5);
-        sleep_ms(5);
+        audio_task();
 
-        // Logica interfeței grafice
+        uint32_t now = to_ms_since_boot(get_absolute_time());
+        if (now - last_tick >= 5) {
+            lv_tick_inc(5);
+            lv_timer_handler();
+            last_tick = now;
+        }
+
         switch (current_screen) {
             case SCREEN_HOME:
                 home_screen_logic();
@@ -43,6 +48,9 @@ int main() {
                 sleep_screen_logic();
                 break;
         }
+
+        sleep_us(200);
     }
+
     return 0;
 }
