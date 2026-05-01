@@ -3,10 +3,10 @@
 // Configurare SPI
 static spi_t spis[] = {
     {
-        .hw_inst  = spi0,
-        .miso_gpio = 4,
-        .mosi_gpio = 3,
-        .sck_gpio  = 2,
+        .hw_inst  = spi1,
+        .miso_gpio = 12,
+        .mosi_gpio = 11,
+        .sck_gpio  = 10,
         .baud_rate = 2500000  
     }
 };
@@ -15,7 +15,7 @@ static spi_t spis[] = {
 static sd_spi_if_t spi_ifs[] = {
     {
         .spi     = &spis[0],
-        .ss_gpio = 5         
+        .ss_gpio = 9         
     }
 };
 

@@ -6,7 +6,6 @@
 #include "buttons.h"
 #include "display_port.h"
 #include "sd.h"
-#include "audio_player.h" // <-- Includerea modulului audio
 
 lv_obj_t *opt1;
 lv_obj_t *opt2;
@@ -408,11 +407,6 @@ void listen_menu_logic(void){
         ui_set_opt_active(opt2, current_option_for_playback_screen == STOP_BACK_BUTTON);
         
         current_screen = SCREEN_PLAYBACK;
-
-        // --- PORNIM REDAREA AUDIO AICI ---
-        char full_path[40];
-        sprintf(full_path, "0:/%s", wav_files[current_file_index]); // Construim calea corectă către SD
-        audio_player_play(full_path);
     }
 }
 
@@ -538,19 +532,15 @@ void playback_logic(void){
             if(is_playing){
                 lv_label_set_text(opt1, LV_SYMBOL_PAUSE);
                 lv_timer_resume(playback_timer);
-                audio_player_resume(); // --- Reluăm audio
             }else{
                 lv_label_set_text(opt1, LV_SYMBOL_PLAY);
                 lv_timer_pause(playback_timer);
-                audio_player_pause(); // --- Punem pe pauză audio
             }
         }else if (current_option_for_playback_screen == STOP_BACK_BUTTON){
             if(playback_timer){
                 lv_timer_del(playback_timer);
                 playback_timer = NULL;
             }
-            
-            audio_player_stop(); // --- Oprim audio-ul definitiv când ieșim
 
             lv_scr_load_anim(listen_menu_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
             current_screen = SCREEN_LISTEN_MENU;
@@ -574,8 +564,7 @@ void sleep_screen_logic(void){
 void ui_init(void){
     stdio_init_all();
     init_sd_card();
-    audio_player_init(); // --- Inițializăm driverul I2S / DMA pentru redare
-
+    
     display_port_init();
 
     lv_obj_set_style_bg_color(lv_scr_act(), lv_color_hex(0x121212), 0);

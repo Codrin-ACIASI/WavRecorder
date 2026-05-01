@@ -1,3 +1,17 @@
+# == DO NOT EDIT THE FOLLOWING LINES for the Raspberry Pi Pico VS Code Extension to work ==
+if(WIN32)
+    set(USERHOME $ENV{USERPROFILE})
+else()
+    set(USERHOME $ENV{HOME})
+endif()
+set(sdkVersion 2.2.0)
+set(toolchainVersion 14_2_Rel1)
+set(picotoolVersion 2.2.0-a4)
+set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
+if (EXISTS ${picoVscode})
+    include(${picoVscode})
+endif()
+# ====================================================================================
 cmake_minimum_required(VERSION 3.13)
 
 set(CMAKE_C_STANDARD 11)
@@ -31,7 +45,6 @@ add_subdirectory(lvgl)
 
 add_subdirectory(no-OS-FatFS-SD-SDIO-SPI-RPi-Pico/src build)
 
-# 1. MAI ÎNTÂI creăm executabilul
 add_executable(wav_recorder
     buttons.c
     wav_recorder.c
@@ -39,11 +52,7 @@ add_executable(wav_recorder
     ui.c
     hw_config.c
     sd.c
-    audio_player.c
 )
-
-# 2. APOI legăm fișierul PIO de el
-pico_generate_pio_header(wav_recorder ${CMAKE_CURRENT_LIST_DIR}/i2s.pio)
 
 pico_set_program_name(wav_recorder "wav_recorder")
 pico_set_program_version(wav_recorder "0.1")
