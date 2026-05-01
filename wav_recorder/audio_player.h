@@ -10,8 +10,6 @@ void audio_stop(void);
 void audio_pause(bool pause);
 void audio_task(void);
 bool audio_is_playing(void);
-
-// NOU: Funcție pentru a reda un sunet sintetic de test
 void audio_play_test_tone(uint32_t freq);
 
-#endif // AUDIO_PLAYER_H
+#endif

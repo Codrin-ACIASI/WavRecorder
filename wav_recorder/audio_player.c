@@ -139,6 +139,7 @@ static void fill_buffer(uint32_t *dest_buffer) {
     if (wav_channels == 2) {
          samples_to_read = AUDIO_FRAMES * 2;
     }
+    
 
     // Câte eșantioane mai avem disponibile?
     uint32_t samples_left = ram_wav_samples_total - ram_wav_current_sample_index;
@@ -168,8 +169,13 @@ static void fill_buffer(uint32_t *dest_buffer) {
         for (int i = 0; i < AUDIO_FRAMES; i++) {
             if (i < samples_to_read) {
                 // Citim din buffer-ul static
+                // În fill_buffer, în interiorul buclei else (MONO)
                 int32_t sample = ram_wav_buffer[ram_wav_current_sample_index++] * volume_multiplier;
-                
+
+            // ADAUGĂ ACEST PRINT PENTRU DIAGNOSTIC:
+            if (i == 0 && ram_wav_current_sample_index < 5000) { // Printăm doar pentru primul eșantion din primele câteva buffere
+                printf("[RAM DIAG] Index: %lu, Valoare PCM: %ld\n", ram_wav_current_sample_index, sample);
+            }
                 if(sample > 32767) sample = 32767; else if(sample < -32768) sample = -32768;
                 
                 dest_buffer[i] = ((uint32_t)(uint16_t)sample << 16) | (uint16_t)sample;

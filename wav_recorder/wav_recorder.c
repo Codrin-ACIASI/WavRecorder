@@ -1,58 +1,48 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "audio_player.h"
+#include "lvgl.h"
+#include "display_port.h"
+#include "ui.h"
+#include "buttons.h"
+#include "hardware/spi.h"
+#include "audio_player.h" // <-- ADĂUGAT: Header-ul sistemului audio
+
+extern lv_timer_t *record_timer;
 
 int main() {
-    stdio_init_all();
-    
-    // Oferim 3 secunde utilizatorului să deschidă Serial Monitor-ul
-    sleep_ms(9000); 
+    ui_init();
+    audio_init();
 
-    printf("\n=============================================\n");
-    printf("   TEST I2S HARDWARE - ECHO NOTE PICO 2      \n");
-    printf("=============================================\n");
-    printf("Tasteaza un caracter in Serial Monitor:\n");
-    printf(" [1] -> Reda sunet 440 Hz (Nota La)\n");
-    printf(" [2] -> Reda sunet 880 Hz (Nota La inalta)\n");
-    printf(" [0] -> Opreste sunetul\n");
-    printf("=============================================\n\n");
-
-    // Inițializăm strict pinii I2S, MAX98357A, DMA și PIO
-    audio_init(); 
+    printf("--- Intrare in bucla principala LVGL ---\n");
 
     while (true) {
-        // Menține bufferele DMA pline (necesar pentru redare continuă)
-        audio_task(); 
+        audio_task();
+        // Task-urile LVGL
+        lv_timer_handler();
+        lv_tick_inc(5);
+        sleep_ms(5);
 
-        // Citim non-blocking caractere de pe portul serial (USB)
-        int c = getchar_timeout_us(0);
-        if (c != PICO_ERROR_TIMEOUT) {
-            switch(c) {
-                case '1':
-                    printf(">> Pornire generare: Unda patrata 440 Hz...\n");
-                    audio_play_test_tone(440);
-                    break;
-                case '2':
-                    printf(">> Pornire generare: Unda patrata 880 Hz...\n");
-                    audio_play_test_tone(880);
-                    break;
-                case '0':
-                    printf(">> Oprire sunet.\n");
-                    audio_stop();
-                    break;
-                case '\n':
-                case '\r':
-                    // Ignorăm Enter-ul
-                    break;
-                default:
-                    printf("Comanda necunoscuta: %c\n", c);
-                    break;
-            }
+        // Logica interfeței grafice
+        switch (current_screen) {
+            case SCREEN_HOME:
+                home_screen_logic();
+                break;
+            case SCREEN_RECORD_OPTIONS:
+                intermediate_screen_logic();
+                break;
+            case SCREEN_RECORD:
+                record_screen_logic();
+                break;
+            case SCREEN_LISTEN_MENU:
+                listen_menu_logic();
+                break;
+            case SCREEN_PLAYBACK:
+                playback_logic();
+                break;
+            case SCREEN_SLEEP_MODE:
+                sleep_screen_logic();
+                break;
         }
-
-        // Previne monopolizarea CPU-ului
-        sleep_us(500); 
     }
-
     return 0;
 }
