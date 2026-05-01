@@ -1,0 +1,20 @@
+.program i2s_tx
+.side_set 2
+
+; Mapele pinilor (definite din codul C):
+; OUT pin: DIN (GPIO13)
+; Side-set base: BCLK (GPIO14)   -> Bit 0
+; Side-set + 1:  LRC (GPIO15)    -> Bit 1
+
+bitloop1:
+    out pins, 1         side 0b10   ; LRC=1, BCLK=0 (Canalul Drept)
+    jmp x-- bitloop1    side 0b11   ; LRC=1, BCLK=1
+    out pins, 1         side 0b00   ; LRC=0, BCLK=0 (Ultimul bit din D. Pregatim LRC pt Stanga)
+    set x, 14           side 0b01   ; LRC=0, BCLK=1
+
+bitloop0:
+    out pins, 1         side 0b00   ; LRC=0, BCLK=0 (Canalul Stang)
+    jmp x-- bitloop0    side 0b01   ; LRC=0, BCLK=1
+    out pins, 1         side 0b10   ; LRC=1, BCLK=0 (Ultimul bit din S. Pregatim LRC pt Dreapta)
+public entry_point:
+    set x, 14           side 0b11   ; LRC=1, BCLK=1

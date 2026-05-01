@@ -6,6 +6,7 @@
 #include "buttons.h"
 #include "display_port.h"
 #include "sd.h"
+#include "audio_player.h" // <-- ADĂUGAT: Header-ul player-ului audio
 
 lv_obj_t *opt1;
 lv_obj_t *opt2;
@@ -185,15 +186,6 @@ static lv_obj_t *record_options_screen(void)
     return record_options_scr;
 }
 
-static void start_symbol(void)
-{
-    lv_obj_t *symbol = lv_label_create(lv_scr_act());
-    lv_obj_set_style_text_font(symbol, &lv_font_montserrat_32, 0);
-    lv_label_set_text(symbol, LV_SYMBOL_AUDIO);
-    lv_obj_set_style_text_color(symbol, lv_color_hex(0xFFFFFF), 0);
-    lv_obj_align(symbol, LV_ALIGN_CENTER, 0, 0);  
-}
-
 static void rec_anim_cb(void *obj, int32_t v)
 {
     lv_obj_set_style_opa((lv_obj_t *)obj, v, 0);
@@ -219,7 +211,6 @@ static lv_obj_t *record_screen(void)
 {
     lv_obj_t *timer_label;
     lv_obj_t *rec_label;
-    lv_timer_t *timer;
 
     lv_obj_t *record_scr = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(record_scr, lv_color_hex(0x121212), 0);
@@ -280,7 +271,7 @@ static lv_obj_t* listen_menu_screen(){
 
     if (total_files_found == 0) {
         lv_obj_t* empty_label = lv_label_create(file_list_container);
-        lv_label_set_text(empty_label, "Niciun fisier .WAV gasit.");
+        lv_label_set_text(empty_label, "Niciun fisier gasit.");
         lv_obj_set_style_text_color(empty_label, lv_color_hex(0xFF0000), 0); 
         lv_obj_set_style_pad_all(empty_label, 10, 0);
         return listen_scr;
@@ -319,7 +310,6 @@ static lv_obj_t *playback_screen(int file_index){
     lv_obj_set_style_bg_color(play_scr, lv_color_hex(0x121212), 0);
 
     char filename[40];
-    // Afisam direct numele real al fisierului
     sprintf(filename, "%s", wav_files[file_index]);
 
     filename_label = lv_label_create(play_scr);
@@ -401,6 +391,12 @@ void listen_menu_logic(void){
     if (flag1) {
         flag1 = false;
         
+        // --- ADĂUGAT PENTRU REDARE AUDIO ---
+        char filepath[260];
+        sprintf(filepath, "0:/%s", wav_files[current_file_index]); // Construim "0:/REC_001.WAV"
+        audio_play_wav(filepath);
+        // -----------------------------------
+
         lv_scr_load_anim(playback_screen(current_file_index), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
         current_option_for_playback_screen = PLAY_PAUSE_BUTTON;
         ui_set_opt_active(opt1, current_option_for_playback_screen == PLAY_PAUSE_BUTTON);
@@ -532,15 +528,19 @@ void playback_logic(void){
             if(is_playing){
                 lv_label_set_text(opt1, LV_SYMBOL_PAUSE);
                 lv_timer_resume(playback_timer);
+                audio_pause(false); // --- Mute / Unmute ---
             }else{
                 lv_label_set_text(opt1, LV_SYMBOL_PLAY);
                 lv_timer_pause(playback_timer);
+                audio_pause(true);  // --- Mute / Unmute ---
             }
         }else if (current_option_for_playback_screen == STOP_BACK_BUTTON){
             if(playback_timer){
                 lv_timer_del(playback_timer);
                 playback_timer = NULL;
             }
+
+            audio_stop(); // --- OPREȘTE REDAREA ---
 
             lv_scr_load_anim(listen_menu_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
             current_screen = SCREEN_LISTEN_MENU;

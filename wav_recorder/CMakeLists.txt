@@ -52,6 +52,7 @@ add_executable(wav_recorder
     ui.c
     hw_config.c
     sd.c
+    audio_player.c   # <-- ADĂUGAT: Fișierul sursă pentru player-ul audio
 )
 
 pico_set_program_name(wav_recorder "wav_recorder")
@@ -59,6 +60,10 @@ pico_set_program_version(wav_recorder "0.1")
 
 pico_enable_stdio_uart(wav_recorder 0)
 pico_enable_stdio_usb(wav_recorder 1)
+
+# Generare header din fisierul PIO (.pio -> .pio.h)
+# Acest pas asigura ca "i2s_tx.pio.h" va fi creat inainte de compilarea audio_player.c
+pico_generate_pio_header(wav_recorder ${CMAKE_CURRENT_LIST_DIR}/i2s_tx.pio)
 
 target_link_libraries(wav_recorder 
     pico_stdlib 
