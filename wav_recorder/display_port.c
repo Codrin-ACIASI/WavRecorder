@@ -77,7 +77,7 @@ uint32_t custom_tick_get(void) {
 
 void display_port_init(void) {
     // 1. Setup SPI
-    spi_init(spi0, 10 * 1000 * 1000); 
+    spi_init(spi0, 20 * 1000 * 1000); 
     gpio_set_function(PIN_CLK,  GPIO_FUNC_SPI);
     gpio_set_function(PIN_MOSI, GPIO_FUNC_SPI);
     gpio_set_function(PIN_MISO, GPIO_FUNC_SPI);

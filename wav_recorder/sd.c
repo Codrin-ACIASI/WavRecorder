@@ -49,6 +49,10 @@ void scan_sd_for_wavs(void) {
             }
 
             if (!(fno.fattrib & AM_DIR)) {
+
+                if(strncmp(fno.fname, "._", 2) == 0){
+                    continue;
+                }
                 int len = strlen(fno.fname);
                 if (len > 4 &&
                     (strcmp(&fno.fname[len - 4], ".WAV") == 0 ||

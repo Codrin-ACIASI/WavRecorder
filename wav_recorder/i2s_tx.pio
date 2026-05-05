@@ -8,7 +8,7 @@ bitloop1:
     out pins, 1         side 0b10   ; LRC=1, BCLK=0 (Canal Drept)
     jmp x-- bitloop1    side 0b11   ; LRC=1, BCLK=1
     out pins, 1         side 0b00   ; LRC=0, BCLK=0 (Pregatire LRC Stanga)
-    set x, 14           side 0b01   ; LRC=0, BCLK=1
+    set x, 14           side 0b01   ; LRC=0, BCLK==1
 
 bitloop0:
     out pins, 1         side 0b00   ; LRC=0, BCLK=0 (Canal Stang)

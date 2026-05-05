@@ -8,6 +8,10 @@
 #include "sd.h"
 #include "audio_player.h" // <-- ADĂUGAT: Header-ul player-ului audio
 
+volatile uint32_t last_activity_time = 0;
+#define SLEEP_TIMEOUT_MS 30000
+
+
 lv_obj_t *opt1;
 lv_obj_t *opt2;
 lv_obj_t *opt3;
@@ -30,6 +34,7 @@ lv_obj_t *file_list_container = NULL;
 typedef struct {
     lv_obj_t *label;
     uint32_t start_time;
+    uint32_t pause_start_time;
 } timer_data_t;
 
 lv_timer_t *record_timer = NULL;
@@ -193,15 +198,21 @@ static void rec_anim_cb(void *obj, int32_t v)
 
 static void update_timer_cb(lv_timer_t *t)
 {
-    timer_data_t *data = (timer_data_t *)t->user_data;
+    timer_data_t *data = (timer_data_t*)t->user_data;
+    if(current_screen == SCREEN_PLAYBACK && !audio_is_playing()){
+        lv_timer_pause(t);
+        lv_label_set_text(data->label, "00:00");
+        lv_label_set_text(opt1, LV_SYMBOL_PLAY);
+        return;
+    }
 
     uint32_t elapsed = to_ms_since_boot(get_absolute_time()) - data->start_time;
 
     uint32_t seconds = elapsed / 1000;
     uint32_t minutes = seconds / 60;
     seconds = seconds % 60;
-
     static char buf[16];
+
     sprintf(buf, "%02d:%02d", minutes, seconds);
 
     lv_label_set_text(data->label, buf);
@@ -232,6 +243,7 @@ static lv_obj_t *record_screen(void)
     timer_data_t *data = lv_mem_alloc(sizeof(timer_data_t));
     data->label = timer_label;
     data->start_time = to_ms_since_boot(get_absolute_time());
+    data->pause_start_time = 0;
 
     record_timer = lv_timer_create(update_timer_cb, 200, data);
 
@@ -330,6 +342,7 @@ static lv_obj_t *playback_screen(int file_index){
     timer_data_t *data = lv_mem_alloc(sizeof(timer_data_t));
     data->label = timer_label;
     data->start_time = to_ms_since_boot(get_absolute_time());
+    data->pause_start_time = 0;
 
     playback_timer = lv_timer_create(update_timer_cb, 200, data);
 
@@ -483,6 +496,9 @@ void record_screen_logic(){
         flag1 = false;
         if (current_option_for_record_screen == SAVE_RECORD_BUTTON) {
             if (record_timer) {
+                if(record_timer->user_data != NULL){
+                    lv_mem_free(record_timer->user_data);
+                }
                 lv_timer_del(record_timer);
                 record_timer = NULL;
             }
@@ -493,11 +509,18 @@ void record_screen_logic(){
             paused = false;
         } else if (current_option_for_record_screen == PAUSE_RECORD_BUTTON) {
             paused = !paused;
-            if (paused) {
+            timer_data_t *rec_data = (timer_data_t*)record_timer->user_data;
+            if(paused){
                 lv_label_set_text(opt2, LV_SYMBOL_PLAY);
                 lv_timer_pause(record_timer);
-            } else {
+
+                rec_data->pause_start_time = to_ms_since_boot(get_absolute_time());
+            }else{
                 lv_label_set_text(opt2, LV_SYMBOL_PAUSE);
+
+                uint32_t time_spent_in_pause = to_ms_since_boot(get_absolute_time()) - rec_data->pause_start_time;
+                rec_data->start_time += time_spent_in_pause;
+
                 lv_timer_resume(record_timer);
             }
         }
@@ -519,32 +542,48 @@ void playback_logic(void){
         ui_set_opt_active(opt2, current_option_for_playback_screen == STOP_BACK_BUTTON);
     }
 
-    static bool is_playing = true;
 
     if(flag1){
         flag1 = false;
         if(current_option_for_playback_screen == PLAY_PAUSE_BUTTON){
-            is_playing = !is_playing;
-            if(is_playing){
-                lv_label_set_text(opt1, LV_SYMBOL_PAUSE);
-                lv_timer_resume(playback_timer);
-                audio_pause(false); // --- Mute / Unmute ---
-            }else{
-                lv_label_set_text(opt1, LV_SYMBOL_PLAY);
-                lv_timer_pause(playback_timer);
-                audio_pause(true);  // --- Mute / Unmute ---
+            timer_data_t *play_data = (timer_data_t*)playback_timer->user_data;
+            if(audio_is_playing()){
+                if (strcmp(lv_label_get_text(opt1), LV_SYMBOL_PAUSE) == 0) {
+                    lv_label_set_text(opt1, LV_SYMBOL_PLAY);
+                    play_data->pause_start_time = to_ms_since_boot(get_absolute_time());
+                    lv_timer_pause(playback_timer);
+                    audio_pause(true);
+                }else{
+                    lv_label_set_text(opt1, LV_SYMBOL_PAUSE);
+                    uint32_t time_spent_in_pause = to_ms_since_boot(get_absolute_time()) - play_data->pause_start_time;
+                    play_data->start_time += time_spent_in_pause;
+                    lv_timer_resume(playback_timer);
+                    audio_pause(false);
             }
-        }else if (current_option_for_playback_screen == STOP_BACK_BUTTON){
-            if(playback_timer){
+        }else{
+            char filepath[260];
+                sprintf(filepath, "0:/%s", wav_files[current_file_index]);
+                
+                audio_play_wav(filepath); 
+
+                lv_label_set_text(opt1, LV_SYMBOL_PAUSE);
+                play_data->start_time = to_ms_since_boot(get_absolute_time());
+                play_data->pause_start_time = 0;
+                lv_timer_resume(playback_timer);
+        }
+    }else if (current_option_for_playback_screen == STOP_BACK_BUTTON){
+        if(playback_timer){
+                
+                if(playback_timer->user_data != NULL){
+                    lv_mem_free(playback_timer->user_data);
+                }
                 lv_timer_del(playback_timer);
                 playback_timer = NULL;
             }
 
-            audio_stop(); // --- OPREȘTE REDAREA ---
-
+            audio_stop(); // Ne asiguram ca oprim redarea hardware
             lv_scr_load_anim(listen_menu_screen(), LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
             current_screen = SCREEN_LISTEN_MENU;
-            is_playing = true;
         }
     }
 }

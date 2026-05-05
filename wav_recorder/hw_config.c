@@ -7,7 +7,7 @@ static spi_t spis[] = {
         .miso_gpio = 12,
         .mosi_gpio = 11,
         .sck_gpio  = 10,
-        .baud_rate = 2500000  
+        .baud_rate = 12000000
     }
 };
 

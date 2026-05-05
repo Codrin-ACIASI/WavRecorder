@@ -29,10 +29,9 @@ volatile bool buffer_0_needs_fill = false;
 volatile bool buffer_1_needs_fill = false;
 volatile bool is_playing = false;
 
-#define MAX_RAM_WAV_BYTES 120000
-static int16_t ram_wav_buffer[MAX_RAM_WAV_BYTES / 2];
-static uint32_t ram_wav_samples_total = 0;
-static uint32_t ram_wav_current_sample_index = 0;
+// --- NOU: Memorie tampon mica doar pentru citirea in transe ---
+static int16_t sd_read_buffer[AUDIO_FRAMES]; 
+static uint32_t wav_data_bytes_remaining = 0; // Tine minte cat mai avem din melodie
 
 static uint16_t wav_channels = 1;
 static uint32_t wav_sample_rate = 16000;
@@ -81,23 +80,18 @@ bool parse_wav_header(FIL *file) {
     if (data_size == 0)
         return false;
 
-    if (data_size > MAX_RAM_WAV_BYTES)
-        data_size = MAX_RAM_WAV_BYTES;
-
+    // --- NOU: Doar mutam "cursorul" fisierului la inceputul muzicii ---
     f_lseek(file, offset + 8);
+    
+    // Salvam dimensiunea ca sa stim cand se termina piesa
+    wav_data_bytes_remaining = data_size; 
 
-    UINT br2;
-    if (f_read(file, ram_wav_buffer, data_size, &br2) != FR_OK)
-        return false;
-
-    ram_wav_samples_total = br2 / 2;
-    ram_wav_current_sample_index = 0;
-
-    f_close(file);
+    // ATENTIE: NU mai inchidem fisierul cu f_close aici! Trebuie sa ramana 
+    // deschis ca sa il citim in timp ce canta.
     return true;
 }
 
-/* ================= BUFFER ================= */
+/* ================= BUFFER (STREAMING LOGIC) ================= */
 
 void fill_buffer(uint32_t *dest) {
     if (!is_playing) {
@@ -105,21 +99,45 @@ void fill_buffer(uint32_t *dest) {
         return;
     }
 
-    if (ram_wav_current_sample_index >= ram_wav_samples_total) {
+    // Daca am ajuns la finalul fisierului SD
+    if (wav_data_bytes_remaining == 0) {
         memset(dest, 0, AUDIO_FRAMES * 4);
         audio_stop();
         return;
     }
 
+    // Calculam cati bytes trebuie sa citim in aceasta tura (maxim 4096 bytes / 2048 frame-uri)
+    uint32_t bytes_to_read = AUDIO_FRAMES * 2; 
+    if (bytes_to_read > wav_data_bytes_remaining) {
+        bytes_to_read = wav_data_bytes_remaining; // Citim doar ce a mai ramas la final de melodie
+    }
+
+    // Curatam buffer-ul temporar in caz ca e finalul piesei si ramane loc gol
+    memset(sd_read_buffer, 0, sizeof(sd_read_buffer));
+
+    UINT bytes_read = 0;
+    // Citim "o cana cu apa" de pe cardul SD direct in RAM
+    FRESULT fr = f_read(&current_wav, sd_read_buffer, bytes_to_read, &bytes_read);
+    
+    // Daca a fost o eroare de card sau nu s-a citit nimic
+    if (fr != FR_OK || bytes_read == 0) {
+        memset(dest, 0, AUDIO_FRAMES * 4);
+        audio_stop();
+        return;
+    }
+
+    wav_data_bytes_remaining -= bytes_read;
+    int samples_read = bytes_read / 2; // Un sample de 16-biti = 2 bytes
+
+    // Impachetam sunetul Mono in formatul cerut de PIO pentru canal dublu (Stanga/Dreapta)
     for (int i = 0; i < AUDIO_FRAMES; i++) {
         int16_t sample = 0;
-
-        if (ram_wav_current_sample_index < ram_wav_samples_total) {
-            sample = ram_wav_buffer[ram_wav_current_sample_index++];
+        
+        if (i < samples_read) {
+            sample = sd_read_buffer[i];
         }
 
-        dest[i] = ((uint32_t)(uint16_t)sample << 16) |
-                   (uint16_t)sample;
+        dest[i] = ((uint32_t)(uint16_t)sample << 16) | (uint16_t)sample;
     }
 }
 
@@ -130,14 +148,14 @@ void dma_irq_handler() {
         dma_hw->ints0 = (1u << dma_ch_0);
         dma_channel_set_read_addr(dma_ch_0, audio_buffer_0, false);
         dma_channel_set_trans_count(dma_ch_0, AUDIO_FRAMES, false);
-        buffer_0_needs_fill = true;
+        buffer_0_needs_fill = true; // "Galeta 0 s-a golit, trebuie umpluta!"
     }
 
     if (dma_hw->ints0 & (1u << dma_ch_1)) {
         dma_hw->ints0 = (1u << dma_ch_1);
         dma_channel_set_read_addr(dma_ch_1, audio_buffer_1, false);
         dma_channel_set_trans_count(dma_ch_1, AUDIO_FRAMES, false);
-        buffer_1_needs_fill = true;
+        buffer_1_needs_fill = true; // "Galeta 1 s-a golit, trebuie umpluta!"
     }
 }
 
@@ -164,7 +182,6 @@ void audio_init() {
 
     pio_sm_set_consecutive_pindirs(pio_inst, pio_sm, I2S_DATA_PIN, 1, true);
     pio_sm_set_consecutive_pindirs(pio_inst, pio_sm, I2S_BCLK_PIN, 3, true);
-
     pio_sm_init(pio_inst, pio_sm, pio_offset, &c);
 
     dma_ch_0 = dma_claim_unused_channel(true);
@@ -211,13 +228,21 @@ bool audio_play_wav(const char *filename) {
     if (f_open(&current_wav, filename, FA_READ) != FR_OK)
         return false;
 
-    if (!parse_wav_header(&current_wav))
+    if (!parse_wav_header(&current_wav)){
+        f_close(&current_wav);
         return false;
+    }
 
     uint32_t sys_clk = clock_get_hz(clk_sys);
     uint32_t bclk = wav_sample_rate * 2 * 16;
     float div = (float)sys_clk / (bclk * 2.0f);
     pio_sm_set_clkdiv(pio_inst, pio_sm, div);
+
+    pio_sm_restart(pio_inst, pio_sm);
+    pio_sm_exec(pio_inst, pio_sm, pio_encode_jmp(pio_offset));
+
+    buffer_0_needs_fill = false;
+    buffer_1_needs_fill = false;
 
     gpio_put(I2S_AMP_SD, 1);
     is_playing = true;
@@ -237,8 +262,10 @@ bool audio_play_wav(const char *filename) {
 }
 
 void audio_stop() {
+    if (!is_playing) return;
+
     is_playing = false;
-    ram_wav_current_sample_index = 0;
+    wav_data_bytes_remaining = 0;
 
     dma_channel_abort(dma_ch_0);
     dma_channel_abort(dma_ch_1);
@@ -246,9 +273,16 @@ void audio_stop() {
     pio_sm_set_enabled(pio_inst, pio_sm, false);
     pio_sm_clear_fifos(pio_inst, pio_sm);
 
+    pio_sm_restart(pio_inst, pio_sm);
+    pio_sm_exec(pio_inst, pio_sm, pio_encode_jmp(pio_offset));
+
     gpio_put(I2S_AMP_SD, 0);
 
-    f_close(&current_wav);
+    // Am pastrat fisierul deschis (comentat) pentru functionalitatea de Auto-Rewind a UI-ului tau
+    // f_close(&current_wav); 
+    
+    buffer_0_needs_fill = false;
+    buffer_1_needs_fill = false;
 }
 
 void audio_pause(bool pause) {
@@ -264,6 +298,9 @@ void audio_pause(bool pause) {
 }
 
 void audio_task() {
+    // Aceasta functie e strigata in bucla principala (Main Loop)
+    // Aici are loc streaming-ul efectiv cand procesorul e "liber"
+    
     if (buffer_0_needs_fill) {
         fill_buffer(audio_buffer_0);
         buffer_0_needs_fill = false;

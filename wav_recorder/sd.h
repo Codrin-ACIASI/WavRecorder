@@ -1,7 +1,7 @@
 #ifndef SD_H_
 #define SD_H_
 
-#define MAX_FILES_TO_DISPLAY 10
+#define MAX_FILES_TO_DISPLAY 20
 #define MAX_FILENAME_LEN     256   // <-- definit o singura data aici
 
 #include "ff.h"

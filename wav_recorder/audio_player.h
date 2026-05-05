@@ -1,8 +1,7 @@
 #ifndef AUDIO_PLAYER_H
 #define AUDIO_PLAYER_H
 
-#include <stdint.h>
-#include <stdbool.h>
+#include "commons.h"
 
 void audio_init(void);
 bool audio_play_wav(const char *filename);
